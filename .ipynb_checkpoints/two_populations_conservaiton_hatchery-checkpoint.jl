@@ -1,5 +1,5 @@
 module two_populations_conservaiton_hatchery
-include("normal_trait_distribution.jl")
+include("quant_gen_code/normal_trait_distribution.jl")
 """
 Mutatable struct that stores states
 and parameters for the model. 
