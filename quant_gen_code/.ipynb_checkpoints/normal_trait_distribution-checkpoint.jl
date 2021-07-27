@@ -49,10 +49,21 @@ mu_prime - float64 mean triat value after selection
 sigma_prime - float64 variacne after selection
 """
 function selection(x, mu, sigma, mu_s, sigma_s)
+    
+    g = sigma^2*sigma_s^2/(sigma^2 + sigma_s^2)
+    
+    m = g*(sigma^2*mu_s + sigma_s^2*mu)/(sigma^2*sigma_s^2)
+    
+    x = x*sqrt(g)/(sigma)*exp(-mu^2/(2*sigma^2) - mu_s^2/(2*sigma_s^2) + m^2/(2*g)) #*
+    return x, m, sqrt(g)
+end 
+
+
+function selection_vector(x, mu, sigma, mu_s, sigma_s)
     g = sigma^2*sigma_s^2/(sigma^2 + sigma_s^2)
     m = g*(sigma^2*mu_s + sigma_s^2*mu)/(sigma^2*sigma_s^2)
     x = x*sqrt(g)/(sigma)*exp(-mu^2/(2*sigma^2) - mu_s^2/(2*sigma_s^2) + m^2/(2*g)) #*
-    return x, m, sqrt(g)
+    return [x, m, sqrt(g)]
 end 
 
 """
