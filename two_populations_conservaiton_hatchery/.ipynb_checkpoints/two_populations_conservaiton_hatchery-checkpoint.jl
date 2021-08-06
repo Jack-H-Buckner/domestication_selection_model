@@ -101,6 +101,10 @@ function update_populations_return_state(model,releases)
     mu = [model.mu[1],model.mu[1],model.mu[2]]
     sigma = [model.sigma[1],model.sigma[1],model.sigma[2]]
     
+    x_out = x
+    mu_out = mu
+    sigma_out = sigma
+    
     x[2] = releases
     
     # selection 
@@ -108,9 +112,7 @@ function update_populations_return_state(model,releases)
     v, mu[2], sigma[2] = normal_trait_distribution.selection(x[2], mu[2], sigma[2], model.mu_s[2], model.sigma_s[2])
     x[3], mu[3], sigma[3] = normal_trait_distribution.selection(x[3], mu[3], sigma[3], model.mu_s[3], model.sigma_s[3])
     
-    x_out = x
-    mu_out = mu
-    sigma_out = sigma
+    
     # dispersal
     x1 = [x[1],(1-model.s)*x[2]] 
     x2 = [x[3], model.s*x[2]]

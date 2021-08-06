@@ -1,4 +1,5 @@
 module normal_trait_distribution
+using Distributions
 
 """
 reproduction(x, mu, sigma, f, V_le)
@@ -103,5 +104,52 @@ function brood_stock(x,prop,max)
         return x - max, max
     end
 end 
+
+
+"""
+reproduction(x, mu, sigma, f, V_le)
+Models the  mean trait values produced by random mating 
+of a group of sub popuatlions. Each one is assumed to be finite. 
+
+The mean and variacne of the trait vlues are updated before reproduction
+to reflect stochasticiy in the survival process. 
+
+Arguments:
+mu - vector of mean trait values from each contributing populaiton
+sigma - vector of trait variances from each contributing populaiton
+x - vector of sizes of each contribution population
+f - float64 fecundity
+V_ls - float64 variance at likage equilibrium
+
+Value:
+x_prime - float64 density of new juviniles
+mu_prime - float64 - mean trait value 
+sigma_prime - float64 - variance in trait values
+"""
+# function reproduction_drift(N, mu, sigma, f, V_le)
+#     @assert length(mu) == length(sigma)
+#     @assert length(x) == length(mu)
+    
+#     n = length(mu)
+#     epsilon = rand(d,n)
+#     mu = mu .+ sigma.*epsilon./sqrt.(N)
+    
+#     for i in 1:n
+#         chi = Distributions.Chisq(N[i]-1)
+#         v = rand(chi,1)
+#         sigma[i] = sqrt(v*sigma[i]^2/(n-1))
+#     end
+    
+#     mu_prime = sum(mu.*N)/sum(x)
+#     G = sum(N .* (sigma.^2 .+ mu.^2))/sum(x) - mu_prime^2
+#     sigma_prime = G/2 + V_le/2
+#     N_prime = f*sum(N)
+#     if sigma_prime < 0
+#         print("issue")
+#         print("\n")
+#         sigma_prime = 0.001
+#     end
+#     return x_prime, mu_prime, sqrt(sigma_prime) 
+# end 
 
 end # module 

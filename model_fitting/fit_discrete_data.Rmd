@@ -1,0 +1,136 @@
+---
+title: "Fit demographic data"
+author: "Jack Buckner"
+date: "8/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("~/github/domestication_selection_model")
+library(ggplot2)
+library(dplyr)
+library(rstan)
+library(shinystan)
+library(GGally)
+```
+
+
+
+```{r}
+print(getwd())
+dat <- read.csv("data/set3.csv")
+ggplot(dat,aes(x = X, y = N))+
+  geom_point()+
+  geom_path()+
+  geom_point(aes(x = X, y = z))+
+  geom_path(aes(x = X, y = z), linetype = 2)+
+  theme_classic()
+```
+
+
+
+```{r}
+print(getwd())
+dat <- read.csv("data/set1.csv")
+ggplot(dat,aes(x = X, y = n1))+
+  geom_point()+
+  geom_path()+
+  geom_point(aes(x = X, y = n2), linetype = 1)+
+  geom_path(aes(x = X, y = n2), linetype = 2)+
+  geom_point(aes(x = X, y = n3), linetype = 1)+
+  geom_path(aes(x = X, y = n3), linetype = 2)+
+  theme_classic()
+```
+
+
+
+
+```{r}
+dat <- read.csv("data/set3.csv")
+stan_data <- list(
+  N = nrow(dat),
+
+  y = dat$y,
+  N_t = dat$N,
+  m_t = dat$m,
+  #m_t_lag = c(0,dat$m[1:(length(dat$m)-1)]),
+  n = cbind(dat$n1,dat$n2,dat$n3),
+  
+  alpha_a = 2.5,
+  beta_a = 10,
+  alpha_b = 2.5,
+  beta_b = 10,
+  alpha_s = 2,
+  beta_s = 10,
+  lambda_z = 1,
+  lambda_sigma = 1,
+  a_rho = 1,
+  b_rho = 1,
+  sigma_z = 0.05,
+  alpha_sigma_nu = 1,
+  beta_sigma_nu = 1
+)
+
+fit = stan(file = "fit_discrete_tufto_2001.stan",
+     data = stan_data, 
+     chains = 2,
+     iter = 2000,
+     control=list(max_treedepth = 12, adapt_delta=0.99),
+     pars = c("r", "K", "s", "z1"))
+#launch_shinystan(fit)
+dat <- as.data.frame(fit)
+GGally::ggpairs(dat %>% dplyr::select(-`lp__`), aes(color = chain, alpha = 0.01))
+```
+
+```{r}
+GGally::ggpairs(dat %>% dplyr::select(-`lp__`) , aes(alpha = 0.01))
+```
+
+```{r}
+dat <- read.csv("data/set1.csv")
+stan_data <- list(
+  N = nrow(dat),
+
+  y = dat$y,
+  N_t = dat$N,
+  m_t = dat$m,
+  #m_t_lag = c(0,dat$m[1:(length(dat$m)-1)]),
+  n = cbind(dat$n1,dat$n2,dat$n3),
+  
+  mu_a = 0.25,
+  sigma_a = 0.5,
+  alpha_b = 2.5,
+  beta_b = 10,
+  alpha_s = 2,
+  beta_s = 10,
+  lambda_z = 1,
+  lambda_sigma = 1,
+  a_rho = 1,
+  b_rho = 1,
+  sigma_z = 0.05,
+  alpha_sigma_nu = 1,
+  beta_sigma_nu = 1
+)
+
+fit = stan(file = "fit_discrete_tufto_2001.stan",
+     data = stan_data, 
+     chains = 2,
+     iter = 2000,
+     control=list(max_treedepth = 12, adapt_delta=0.99),
+     pars = c("r", "K", "s", "z1"))
+#launch_shinystan(fit)
+dat <- as.data.frame(fit)
+GGally::ggpairs(dat %>% dplyr::select(-`lp__`), aes(alpha = 0.01))
+```
+
+
+```{r}
+library(dplyr)
+
+```
+
+
+
+
+
