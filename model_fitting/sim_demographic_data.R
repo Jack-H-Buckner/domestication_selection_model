@@ -1,5 +1,5 @@
 library(dplyr)
-setwd("~/github/domestication_selection_model")
+setwd("~/github/domestication_selection_model/model_fitting")
 
 
 x_t <- function(x, z_t1, m_t, m_t1, a, b, s, z1, epsilon_Nt, epsilon_zt, n_samps){
@@ -32,7 +32,7 @@ x_t <- function(x, z_t1, m_t, m_t1, a, b, s, z1, epsilon_Nt, epsilon_zt, n_samps
 
 
 
-generate_data <- function(path, x0, m_t, n_t,a, b, s, z1, sigma_Nt, sigma_zt, sigma_obs){
+data <- function(x0, x0_lag, m_t, n_t,a, b, s, z1, sigma_Nt, sigma_zt, sigma_obs){
   N_t <- c()
   z_t <- c()
   y_t <- c()
@@ -40,7 +40,7 @@ generate_data <- function(path, x0, m_t, n_t,a, b, s, z1, sigma_Nt, sigma_zt, si
   n2_ls <- c()
   n3_ls <- c()
   x <- x0
-  x_lag <- x0
+  x_lag <- x0_lag
   for(i in 1:length(m_t)){
  
     N_t1 <- x[1]
@@ -54,7 +54,7 @@ generate_data <- function(path, x0, m_t, n_t,a, b, s, z1, sigma_Nt, sigma_zt, si
     x_lag <- x
     x <- x_new$x
     samp <- x_new$samp
-    y <- log(x[1] - m_t[i]) - log(N_t1)
+    y <- log((x[1] - m_t[i])/N_t1)
     y_t <- append(y_t, y)
     y_mod2 <- append(y_t, y)
     N_t <- append(N_t, x[1])
@@ -63,57 +63,33 @@ generate_data <- function(path, x0, m_t, n_t,a, b, s, z1, sigma_Nt, sigma_zt, si
     n2_ls <- append(n2_ls, samp[2])
     n3_ls <- append(n3_ls, samp[3])
   }
-  print(length(N_t))
-  print(length(y_t))
-  print(length(m_t))
+
   dat <- data.frame(y = y_t, N = exp(log(N_t) + rnorm(length(N_t),0,sigma_obs)), 
                     m = m_t, z = z_t,
                     n1 = n1_ls, n2 = n2_ls, 
                     n3 = n3_ls)
+  
+  return(list(dat = dat, x = x, x_lag = x_lag))
+}
+
+generate_data <- function(path, x0, m_t, n_t,a, b, s, z1, sigma_Nt, sigma_zt, sigma_obs){
+  d_ls <- data(x0, x0, m_t, n_t,a, b, s, z1, sigma_Nt, sigma_zt, sigma_obs)
+  dat <- d_ls$dat
   write.csv(dat, path)
+  return(list(x = d_ls$x, x_lag = d_ls$x_lag))
 }
 
 
-path <- "model_fitting/data/set1.csv"
-x0 <- c(1.0,0.0)
-m_t <- c(rep(0,10),seq(0,0.2,0.05),rep(0.2,15),rep(0.0,15),rep(0.2,15),rep(0.0,10))
-a <- 0.25
-b <- 0.25
-s <- 0.2
-z1 <- 4
-sigma_Nt <- 0.05
-sigma_zt <- 0.005
-sigma_obs <- 0.1
-generate_data(path, x0, m_t, rep(20, length(m_t)),a, b, s, z1, 
-              sigma_Nt, sigma_zt, sigma_obs)
 
 
-path <- "model_fitting/data/set2.csv"
-x0 <- c(1.0,0.0)
-m_t <- c(rep(0,10),seq(0,0.2,0.05),rep(0.2,15),rep(0.0,10))
-a <- 0.25
-b <- 0.25
-s <- 0.2
-z1 <- 4
-sigma_Nt <- 0.05
-sigma_zt <- 0.05
-sigma_obs <- 0.1
-generate_data(path, x0, m_t, rep(20, length(m_t)),a, b, s, z1, 
-              sigma_Nt, sigma_zt, sigma_obs)
 
-
-path <- "model_fitting/data/set3.csv"
-x0 <- c(1.0,0.0)
-m_t <- c(rep(0,10),seq(0,0.2,0.05),rep(0.2,10),rep(0.0,2))
-a <- 0.25
-b <- 0.25
-s <- 0.2
-z1 <- 2
-sigma_Nt <- 0.25
-sigma_zt <- 0.05
-sigma_obs <- 0.1
-generate_data(path, x0, m_t, rep(25, length(m_t)),a, b, s, z1, 
-              sigma_Nt, sigma_zt, sigma_obs)
-
-
+add_rows <- function(dat, x0, x0_lag, 
+                     m_t, n_t,a, b, s, z1, 
+                     sigma_Nt, sigma_zt, sigma_obs){
+              
+  d_ls <- data(x0, x0_lag, m_t, n_t,a, b, s, z1, sigma_Nt, sigma_zt, sigma_obs)
+  dat <- rbind(dat,d_ls$dat)
+  
+  return(list(dat = dat, x = d_ls$x, x_lag = d_ls$x_lag))
+}
 

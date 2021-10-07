@@ -1,0 +1,169 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+one assumption that is often made in coupled genetic demographic models is that the fittness of an individual can be summarize with one quantitative trait. However, there may be multiple traits under seleciton this can change the dynamics of adaptation if the traits are under difernce strengths of selection reletive to their variances in the popualtion. 
+
+I am intersted in analyzing how quickly a popualtion will move towards a local fitness optimum under stabailizin seleciton, and how well one dimensional aproximations match true multivariates patterns.
+
+```{r}
+s <- 0.1*seq(0.005,0.2,0.0001)^2
+x0 <- 0.0002/s#rep(3, length(s))
+xbar <- sqrt(sum(x0^2))
+u <- x0/(xbar)
+s_linear <- sum(s*u^2)
+ft <- function(t){
+  acc = rep(1, length(t))
+  for(i in 1:length(s)){
+    
+    acc <- acc*exp(-s[i]/2*(x0[i]/(1+s[i])^t)^2)
+  }
+  return(1-acc)
+} 
+ft_linear <- function(t) 1-exp(-s_linear/2*(xbar/(1+s_linear)^t)^2)
+
+ggplot() +
+  xlim(0,100000)+
+  geom_function(fun = ft)+
+  geom_function(fun = ft_linear, linetype = 2)+
+  theme_classic()
+```
+
+
+```{r}
+dat <- data.frame(x = 10:100,y = ft(10:100))
+lm(log(y)~log(x), dat)
+```
+```{r}
+x <- seq(10,10000,10)
+y <- ft(x)
+ggplot(data.frame(x=x,y=y),aes(x = x, y = y)) +
+  geom_line()+
+  scale_x_log10()+
+  theme_classic()
+
+```
+
+
+```{r}
+ft_log <- function(t){
+  acc = rep(1, length(t))
+  for(i in 1:length(s)){
+    
+    acc <- acc*exp(-s[i]/2*(x0[i]/(1+s[i])^t)^2)
+  }
+  return(log(1-acc))
+} 
+ggplot() +
+  xlim(0,100)+
+  geom_function(fun = ft_log)+
+  theme_classic()
+```
+
+
+```{r}
+f <- function(t) ft(t)-ft_linear(t)
+ggplot() +
+  xlim(0,30)+
+  geom_function(fun = f)+
+  theme_classic()
+```
+```{r}
+s <- c(0.01,1)
+x0 <- c(5.0,1.0)
+xbar <- sqrt(sum(x0^2))
+u <- x0/xbar
+s_linear <- sum(s*u^2)
+ft <- function(t,s,x0){
+  acc = rep(1, length(t))
+  for(i in 1:length(s)){
+    
+    acc <- acc*exp(-s[i]/2*(x0[i]/(1+s[i])^t)^2)
+  }
+  return(acc)
+} 
+ft_linear <- function(t,s,x0){ 
+  xbar <- sqrt(sum(x0^2))
+  u <- x0/xbar
+  s_linear <- sum(s*u^2)
+  return(exp(-s_linear/2*(xbar/(1+s_linear)^t)^2))
+}
+
+total_diff <- function(s,x0,tol = 10^-6){
+  acc <- 0
+  dist <- 1
+  i <- 0
+  while(dist > tol){
+    i <- i +1
+    dist <- (ft(i,s,x0) - ft_linear(i,s,x0))^2
+    acc <- acc + dist
+  }
+  return(acc)
+}
+
+N <- 100
+dat <- as.data.frame(matrix(ncol = 5, nrow = N))
+names(dat) <- c("xbar", "s_linear","s_u_dist","s_x_dist","dist")
+for(i in 1:N){
+  x0 <- runif(2)
+  s <- c(1,rexp(1,10))
+  xbar <- sqrt(sum(x0^2))
+  u <- x0/xbar
+  
+  x0 <- u/s
+  s <- rexp(1,10)
+  xbar <- sqrt(sum(x0^2))
+  s_linear <- sum(s*u^2)
+  u <- x0/xbar
+  s_u_dist <- sum(s^(-1)*u^2)
+  s_x_dist <- sum(s^(-1)*x0^2)
+  dist <- total_diff(s,x0)
+  dat[i,] <- c(xbar,s_linear,s_u_dist,s_x_dist,dist)
+}
+
+```
+
+
+
+
+```{r}
+L_infty <- 3
+k <- 0.045
+t0 <- -1
+a <- 2
+f_infty <- 1
+LVB <- function(t) L_infty*(1-exp(-k*(t - t0)))
+f_LVB <- function(t) f_infty*(1-exp(-k*(t - t0)))^3
+s <- function(t) exp(-0.03*t)
+fs <- function(t) s(t)*f_LVB(t)
+ggplot()+
+  geom_function(fun=f_LVB)+
+  geom_function(fun=s)+
+  geom_function(fun=fs)+
+  xlim(0,100)+
+  theme_classic()
+```
+
+
+```{r}
+
+s <- function(t) exp(-0.2*t)
+
+ggplot()+
+  geom_function(fun=s)+
+  xlim(0,100)+
+  theme_classic()
+```
+
+
+
+
+
+
+
+
+
+
+
+

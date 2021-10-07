@@ -13,13 +13,21 @@ library(dplyr)
 library(rstan)
 library(shinystan)
 library(GGally)
+
+my_fn <- function(data, mapping, ...){
+      p <- ggplot(data = data, mapping = mapping) + 
+        geom_hex(aes(fill=..density..)) +
+        viridis::scale_fill_viridis()
+      p
+}
+
 ```
 
 
 
 ```{r}
 print(getwd())
-dat <- read.csv("data/set3.csv")
+dat <- read.csv("data/set6_n100.csv")
 ggplot(dat,aes(x = X, y = N))+
   geom_point()+
   geom_path()+
@@ -32,7 +40,7 @@ ggplot(dat,aes(x = X, y = N))+
 
 ```{r}
 print(getwd())
-dat <- read.csv("data/set1.csv")
+dat <- read.csv("data/set6_n100.csv")
 ggplot(dat,aes(x = X, y = n1))+
   geom_point()+
   geom_path()+
@@ -45,89 +53,218 @@ ggplot(dat,aes(x = X, y = n1))+
 
 
 
-
 ```{r}
-dat <- read.csv("data/set3.csv")
-stan_data <- list(
-  N = nrow(dat),
+dat <- read.csv("data/set3_n100.csv")
+samples <-read.csv("samples/fit_data3_n100.csv")
 
-  y = dat$y,
-  N_t = dat$N,
-  m_t = dat$m,
-  #m_t_lag = c(0,dat$m[1:(length(dat$m)-1)]),
-  n = cbind(dat$n1,dat$n2,dat$n3),
-  
-  alpha_a = 2.5,
-  beta_a = 10,
-  alpha_b = 2.5,
-  beta_b = 10,
-  alpha_s = 2,
-  beta_s = 10,
-  lambda_z = 1,
-  lambda_sigma = 1,
-  a_rho = 1,
-  b_rho = 1,
-  sigma_z = 0.05,
-  alpha_sigma_nu = 1,
-  beta_sigma_nu = 1
-)
-
-fit = stan(file = "fit_discrete_tufto_2001.stan",
-     data = stan_data, 
-     chains = 2,
-     iter = 2000,
-     control=list(max_treedepth = 12, adapt_delta=0.99),
-     pars = c("r", "K", "s", "z1"))
-#launch_shinystan(fit)
-dat <- as.data.frame(fit)
-GGally::ggpairs(dat %>% dplyr::select(-`lp__`), aes(color = chain, alpha = 0.01))
+p1 <- GGally::ggpairs(samples %>% dplyr::select(r,K,s,z1),
+                lower=list(continuous=my_fn))+
+  theme_classic()
+ggsave("~/github/domestication_selection_model/figs/Posterior_set3_n100.png",
+       p1,
+       width = 6,
+       height = 4)
+p1
 ```
 
 ```{r}
-GGally::ggpairs(dat %>% dplyr::select(-`lp__`) , aes(alpha = 0.01))
-```
 
-```{r}
-dat <- read.csv("data/set1.csv")
-stan_data <- list(
-  N = nrow(dat),
+samples <-read.csv("samples/fit_data3.csv")
 
-  y = dat$y,
-  N_t = dat$N,
-  m_t = dat$m,
-  #m_t_lag = c(0,dat$m[1:(length(dat$m)-1)]),
-  n = cbind(dat$n1,dat$n2,dat$n3),
-  
-  mu_a = 0.25,
-  sigma_a = 0.5,
-  alpha_b = 2.5,
-  beta_b = 10,
-  alpha_s = 2,
-  beta_s = 10,
-  lambda_z = 1,
-  lambda_sigma = 1,
-  a_rho = 1,
-  b_rho = 1,
-  sigma_z = 0.05,
-  alpha_sigma_nu = 1,
-  beta_sigma_nu = 1
-)
-
-fit = stan(file = "fit_discrete_tufto_2001.stan",
-     data = stan_data, 
-     chains = 2,
-     iter = 2000,
-     control=list(max_treedepth = 12, adapt_delta=0.99),
-     pars = c("r", "K", "s", "z1"))
-#launch_shinystan(fit)
-dat <- as.data.frame(fit)
-GGally::ggpairs(dat %>% dplyr::select(-`lp__`), aes(alpha = 0.01))
+p1 <- GGally::ggpairs(samples%>%
+                        dplyr::mutate(sz = log(s*z1),
+                                      s = log(s)) %>% 
+                        dplyr::select(r,K,s,sz),
+                lower=list(continuous=my_fn))+
+  theme_classic()
+# ggsave("~/github/domestication_selection_model/figs/Posterior_set3_n100.png",
+#        p1,
+#        width = 6,
+#        height = 4)
+p1
 ```
 
 
 ```{r}
-library(dplyr)
+dat <- read.csv("data/set3_n100.csv")
+p2 <- ggplot(dat %>% 
+               dplyr::mutate(t = X) %>%
+               dplyr::select(t,n1,n2,n3)%>%
+               reshape2::melt(id.var = "t"),
+             aes(x = t, y = value, linetype = variable, shape = variable))+
+  geom_point()+
+  geom_path()+
+  theme_classic()
 
+ggsave("~/github/domestication_selection_model/figs/dat_set3_n100.png",
+       p2,
+       width = 6,
+       height = 3)
+p2
+```
+
+
+```{r}
+rf_eqK <- load("../two_populations_conservaiton_hatchery/outputs/rf_eqK.RData")
+```
+
+```{r}
+
+```
+
+```{r}
+ 
+```
+
+
+```{r}
+samples <-read.csv("samples/fit_data2_n100.csv")
+rf <- get(load("../two_populations_conservaiton_hatchery/outputs/rf_v1.RData"))
+m <- 0.1
+x <- samples %>% select(r,K,s,z1)%>%mutate(mu = m/K)
+x$m <- m
+preds <- predict(rf,x)
+
+dat <- x
+dat$tf <- preds
+ggpairs(dat %>% select(-mu,-m), 
+        aes(color = preds, alpha = 0.1),
+        progress = FALSE)
+```
+
+```{r}
+library(randomForest)
+pred <- get(load("../two_populations_conservaiton_hatchery/outputs/predict_levels.RData"))
+rf1 <- get(load("../two_populations_conservaiton_hatchery/outputs/rf_v1.RData"))
+rf2 <- get(load("../two_populations_conservaiton_hatchery/outputs/rf_v2.RData"))
+rf3 <- get(load("../two_populations_conservaiton_hatchery/outputs/rf_v3.RData"))
+```
+
+
+```{r}
+#samples <-read.csv("samples/fit_data2_n100.csv")
+
+m <- 0.05
+x <- samples %>% select(r,K,s,z1)%>%mutate(mu = m/K)
+x$m <- m
+preds <- pred(x)
+
+dat <- x
+dat$region <- as.factor(preds)
+
+```
+
+```{r}
+
+ggpairs(dat[sample(1:nrow(dat), 1000),] %>% select(-mu,-m), 
+        aes(color = as.factor(region), alpha = 0.05),
+        progress = FALSE)+
+  theme_classic()+
+  scale_color_brewer(palette = "Dark2")+
+  scale_fill_brewer(palette = "Dark2")
+
+ggsave(file = "~/github/domestication_selection_model/figs/colored_pairs.png",
+       height = 8,
+       width = 10)
+```
+
+
+
+```{r}
+dat <- read.csv("~/github/domestication_selection_model/model_fitting/samples/fit_data1_n500_samples.csv")
+
+m <- 0.025
+x <- dat %>% select(r,K,s,z1)%>%mutate(mu = m/K)
+x$m <- m
+preds <- pred(x)
+
+dat <- x
+dat$region <- as.factor(preds)
+
+ggplot(dat, 
+        aes(color = as.factor(region),x = s, y = z1),
+        progress = FALSE)+
+  geom_point(alpha = 0.15)+
+  theme_classic()+
+  ylim(0,6)+
+  xlim(0,1.25)+
+  scale_color_brewer(palette = "Dark2")+
+  scale_fill_brewer(palette = "Dark2")+
+  theme(legend.position = "None")
+
+ggsave(file = "~/github/domestication_selection_model/figs/colored_s_z1_dat1_samples.png",
+       height = 2.5,
+       width =3)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+ggplot(dat %>% 
+         group_by(tf)%>%
+         summarize(p = n()),
+       aes(x = tf, y = p/nrow(dat)))+
+geom_bar(stat = "identity")
+
+```
+
+```{r}
+df <- read.csv(paste("samples/fit_data6_n100_",12,".csv"))
+df <- df %>% select(s,z1,r,K)
+df$t <- 12
+for(i in seq(15,35,3)){
+  print(i)
+  dat <- read.csv(paste("samples/fit_data6_n100_",i,".csv"))%>% select(s,z1,r,K)
+  dat$t <- i
+  df <- rbind(df,dat)
+}
+
+```
+
+```{r}
+ggplot(df %>% reshape2::melt(id.var = "t"), aes(x = as.factor(t), y = value, fill = variable))+
+  geom_violin()+
+  facet_wrap(~variable, ncol = 1, scales = "free")
+```
+
+
+```{r}
+x <- df %>% mutate(mu = 0.05/K, m = 0.05)
+
+preds <- pred(x,rf1,rf2,rf3)
+
+x <- x
+x$tf <- as.factor(preds)
+
+ggplot(x %>% 
+         group_by(t,tf) %>%
+         summarize(n = n()),
+       aes( y = tf, x = n, fill = tf))+
+  geom_bar(stat = "identity")+
+  facet_grid(~t)
+```
+
+
+```{r}
+ggplot(x %>% 
+         group_by(t,tf) %>%
+         summarize(n = n()),
+       aes( y = tf, x = n, fill = tf))+
+  geom_bar(stat = "identity")+
+  facet_grid(~t)
 ```
 
 

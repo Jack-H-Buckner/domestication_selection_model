@@ -20,13 +20,14 @@ data {
   int n[N,3];
   
   // priors
-  real mu_a;
-  real sigma_a;
+  real alpha_a;
+  real beta_a;
   real alpha_b;
   real beta_b;
   real alpha_s;
   real beta_s;
-  real lambda_z;
+  real alpha_z;
+  real beta_z;
   real lambda_sigma;
   real a_rho;
   real b_rho;
@@ -44,7 +45,7 @@ transformed data{
 }
 
 parameters {
-  real a;
+  real<lower=0> a;
   real<lower=0> b;
   real<lower=0> s;
   real<lower=0> z1;
@@ -61,7 +62,7 @@ transformed parameters{
   vector[N] a_t;
   vector[N] resids;
   vector[3] p[N];
-  real K;
+  real<lower=0> K;
   z[1] = z0;//epsilon_z[1];
   a_t[1] = a;
   for(i in 2:N){
@@ -87,10 +88,10 @@ transformed parameters{
 
 model {
   // priors
-  a ~ normal(mu_a,sigma_a);
+  a ~ gamma(alpha_a,beta_a);
   target += gamma_lpdf(K|alpha_b,beta_b);
   s ~ gamma(alpha_s,beta_s);
-  z1 ~ exponential(lambda_z);
+  z1 ~ gamma(alpha_z,beta_z);
   sigma ~ exponential(lambda_sigma);
   rho~ beta(a_rho,b_rho);
   z0 ~ normal(0, sigma_z);

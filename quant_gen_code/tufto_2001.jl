@@ -326,6 +326,24 @@ function phase_portrait_nd(params)
     return p1
 end
 
+## non autonomous
 
+
+function derivitives_na(x,m,params,t)
+    N = x[1]
+    z = x[2]
+    
+    r = params[1]
+    K = params[2]
+    V = params[3]
+    s = params[4]
+    z1 = params[5]
+    
+    
+    dN = N*(r*(1-N/K) - s/2 * (V+z^2)) + m(t)
+    dz = -V*s*z - m(t)/N*(z-z1)
+    
+    return [dN,dz]
+end 
 
 end # module 
