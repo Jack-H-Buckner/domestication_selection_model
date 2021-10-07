@@ -33,6 +33,22 @@ function reproduction(x, mu, sigma, f, V_le)
     return x_prime, mu_prime, sqrt(sigma_prime) 
 end 
 
+
+function reproduction_fixed_var(x, mu, sigma, f, V_le)
+    @assert length(mu) == length(sigma)
+    @assert length(x) == length(mu)
+    mu_prime = sum(mu.*x)/sum(x)
+    G = sum(x .* (sigma.^2 .+ mu.^2))/sum(x) - mu_prime^2
+    sigma_prime = G/2 + V_le/2
+    x_prime = f*sum(x)
+    if sigma_prime < 0
+        print("issue")
+        print("\n")
+        sigma_prime = 0.001
+    end
+    return x_prime, mu_prime, sqrt(V_le) 
+end 
+
 """
 selection(x, mu, sigma, mu_s, sigma_s)
 Models the effect of selection on the trait distribution of a popualtion
