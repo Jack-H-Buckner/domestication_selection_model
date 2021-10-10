@@ -33,7 +33,28 @@ function reproduction!(population, population2)
     return population
 end 
 
-
+# function reproduction2!(population, population2)
+#     Vle = population.Vle
+#     mu = [population.moments[1],population2.moments[1]]
+#     sigma = [population.moments[1],population2.moments[1]]
+#     N = [population.N,population2.N]
+    
+#     p = N ./ sum(N)
+#     mu_prime = mu[1]*p[1]^2 + p[1]*p[2]*sum(mu)+mu[2]*p[2]^2
+#     G1 = 0.25*sigma[1]^2 + Vle/2
+#     G2 = 0.25*(sigma[1]+sigma[2])^2+Vle/2
+#     G3 = 0.25*sigma[1]^2+Vle/2
+#     G = (G1 + mu[1]^2)*p[1]^2+ p[1]*p[2]*(G2 + 0.25*(mu[1]+mu[2])^2) + (G3+mu[2]^2)*p[2]^2 - mu_prime^2
+    
+    
+#     if population.order == 2
+#         population.moments = [mu_prime,sqrt(G)]
+#     else
+#         population.moments  = [mu_prime,sqrt(Vle)]
+#     end
+#     population.N = sum(N)
+#     return population
+# end 
 
 function selection!(population)
     mu_s = 0

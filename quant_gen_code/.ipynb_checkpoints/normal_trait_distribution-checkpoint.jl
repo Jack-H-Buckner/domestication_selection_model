@@ -34,19 +34,17 @@ function reproduction(x, mu, sigma, f, V_le)
 end 
 
 
-function reproduction_fixed_var(x, mu, sigma, f, V_le)
-    @assert length(mu) == length(sigma)
-    @assert length(x) == length(mu)
-    mu_prime = sum(mu.*x)/sum(x)
-    G = sum(x .* (sigma.^2 .+ mu.^2))/sum(x) - mu_prime^2
-    sigma_prime = G/2 + V_le/2
+function reproduction_2(x, mu, sigma, f, V_le)
+    @assert length(mu) == length(sigma) ==2
+    @assert length(x) == length(mu) == 2
+    p = x ./ sum(x)
+    mu_prime = mu[1]*p[1]^2 + p[1]*p[2]*sum(mu)+mu[2]*p[2]^2
+    G1 = 0.25*sigma[1]^2 + V_le/2
+    G2 = 0.25*(simga[1]+sigma[2])^2+V_le/2
+    G3 = 0.25*sigma[1]^2+V_le/2
+    G = (G1 + mu[1]^2)*p[1]^2+ p*(1-p)*(G2 + 0.25*(mu[1]+mu[2])^2) + (G3+mu[2]^2)*p[2]^2 - mu_prime^2
     x_prime = f*sum(x)
-    if sigma_prime < 0
-        print("issue")
-        print("\n")
-        sigma_prime = 0.001
-    end
-    return x_prime, mu_prime, sqrt(V_le) 
+    return x_prime, mu_prime, sqrt(G) 
 end 
 
 """
