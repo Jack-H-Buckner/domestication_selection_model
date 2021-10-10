@@ -1,6 +1,6 @@
 """
 ths file provides funciton that define an age structured popualtion model 
-that tracks he full age dependent distribution of a trait in the populaiton. 
+that tracks he full age dependent distribution of a trait in the population. 
 
 The code is built around a centeral mutable struct, 'population'. Popualtion stores 
 a vector with abundcaes of each age class, and an array that stores the density of the 
@@ -130,12 +130,15 @@ end
 """
 Updates the age structure of the popuatlion and adds recruits
 """
-function ageing!(populaiton, R, dsn_R)
+function ageing!(population, R, dsn_R)
     population.abundance = population.abundance .* population.survival
     plus_group = sum(population.abundance[end-1:end])
-    new_A = zeros(population.A_max + 1)
+    new_A = zeros(population.A_max)
     new_A[1] = R 
     new_A[end] = plus_group
+    
+
+    
     new_A[2:end-1] = population.abundance[1:end-2]
     
     N = length(population.grid)
@@ -143,6 +146,7 @@ function ageing!(populaiton, R, dsn_R)
     new_dsn[:,1] = dsn_R
     plus_group_dsn = (population.abundance[end-1]*population.trait[:,end-1] .+ population.abundance[end]*population.trait[:,end]) ./plus_group
     new_dsn[:,end] = plus_group_dsn
+    
     new_dsn[:,2:end-1] = population.trait[:,1:end-2]
     
     population.abundance = new_A
