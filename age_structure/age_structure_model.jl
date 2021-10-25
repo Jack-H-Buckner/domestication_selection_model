@@ -100,7 +100,19 @@ function time_step_afine!(LMS, R)
 end
 
 
+function age_distribution_given_recruitment(R, survival, A_max )
+    N = zeros(A_max)
+    N[1] = R
+    for i in 2:A_max
+        N[i] = N[i-1]*survival[i-1]
+    end 
+    return N
+end 
 
+function LEP(R, survival, fecundity, A_max )
+    N = age_distribution_given_recruitment(R, survival, A_max )
+    return sum(N.*fecundity)
+end 
 
 
 
