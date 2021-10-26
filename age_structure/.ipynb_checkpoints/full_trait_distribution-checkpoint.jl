@@ -13,10 +13,11 @@ as as differnt processes occur, such as immigraiton, reproduction, aging and rec
 """
 module full_trait_distribution
 
+include("age_structure_model.jl")
 using Distributions
 using DSP
 using Plots
-
+using Roots
 
 mutable struct population
     abundance::AbstractVector{Float64}
@@ -25,8 +26,8 @@ mutable struct population
     fecundity::AbstractVector{Float64}
     survival::AbstractVector{Float64}
     A_max::Int64 # max age
-    r::Float64 # stock recruit curve - based on total fecundity
-    K::Float64
+    a::Float64 # stock recruit curve - based on total fecundity
+    b::Float64
     gradient::AbstractVector{Float64} # age dependent seleciton gradient columsn are ages
     m::Int64 # length of convolution kernel 
     Vle::AbstractVector{Float64} # convolution kernel 
@@ -80,7 +81,7 @@ end
 Beverton Holt recruitment 
 """
 function recruitment(f_total, population )
-    R = population.r*f_total/(1+population.r*f_total/population.K )
+    R = population.a*f_total/(1+population.b*f_total )
     return R
 end 
 
@@ -156,19 +157,25 @@ function ageing!(population, R, dsn_R)
 end 
 
 
-function init_population(A_max, survival, fecundity, r ,K, theta, s, min, max, dx, Vle)
+function init_population(A_max, survival, fecundity, r , K, theta, s, min, max, dx, Vle)
     
-    # set age distribution - ad hoc method
+    # set age distribution - equilibrium 
+    LEP = age_structure_model.LEP(1.0, survival, fecundity, A_max)
+    
+    a = r/LEP
+    b = a/K
+    f(x) = a*x/(1+b*x)
+    g(x )= f(x) - x/LEP
+    x_eq = Roots.find_zero(g, (1, K*LEP))
+    y_eq = f(x_eq)
+    
     abundance = zeros(A_max)
-    N = 1
+    N = y_eq
     for i in 1:A_max
         abundance[i] = N
         N *= survival[i]
     end 
-    F = fecundity.*abundance
-    N0 = F*K*(r+1.0)./r
-    abundance .*= N0
-    
+
     # set trait at optimum value and variance = Vle
     grid = collect(min:dx:max)
     d = Distributions.Normal(theta, sqrt(Vle))
@@ -186,7 +193,7 @@ function init_population(A_max, survival, fecundity, r ,K, theta, s, min, max, d
     # gradient
     gradient = exp.(-s/2*(grid .- theta).^2)
     
-    pop = population(abundance, trait, grid, fecundity, survival,A_max, r, K, gradient,m,Vle)
+    pop = population(abundance, trait, grid, fecundity, survival,A_max, a, b, gradient,m,Vle)
     
     return pop
 end 
