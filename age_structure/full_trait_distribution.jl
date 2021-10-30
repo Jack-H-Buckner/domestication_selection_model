@@ -18,6 +18,7 @@ using Distributions
 using DSP
 using Plots
 using Roots
+using FFTW
 
 mutable struct population
     abundance::AbstractVector{Float64}
@@ -37,7 +38,7 @@ end
 returns trait distribution for new age class and 
 the total spawning stock fecundity.
 """
-function reproduction(population)
+function reproduction_fft(population)
 
     f_total = sum(population.abundance .* population.fecundity)
     dsn = population.trait * (population.abundance .* population.fecundity) ./ f_total
@@ -46,7 +47,8 @@ function reproduction(population)
     #Plots.plot!(population.grid,dsn )
     # convolution - random mating 
     N = length(population.grid)-1
-    dsn = DSP.conv(dsn, dsn)[1:2:(2*N+1)]
+    dsn_zs = vcat(dsn,zeros(length(dsn)))
+    dsn = real(ifft(fft(dsn_zs).*fft(dsn_zs)))[1:2:(2*N+1)]#DSP.conv(dsn, dsn)[1:2:(2*N+1)]
     dsn = dsn./sum(dsn)
     
 
@@ -63,7 +65,32 @@ function reproduction(population)
     return dsn, f_total
 end 
 
+function reproduction(population)
 
+    f_total = sum(population.abundance .* population.fecundity)
+    dsn = population.trait * (population.abundance .* population.fecundity) ./ f_total
+    
+
+    #Plots.plot!(population.grid,dsn )
+    # convolution - random mating 
+    N = length(population.grid)-1
+    dsn_zs = vcat(dsn,zeros(length(dsn)))
+    dsn = DSP.conv(dsn, dsn)[1:2:(2*N+1)]
+    dsn = dsn./sum(dsn)
+    
+
+    #Plots.plot!(population.grid,dsn )
+
+    # convolution inperfect inheritance 
+    m = convert(Int64,floor(population.m/2+1))
+    dsn = DSP.conv(dsn, population.Vle)
+ 
+    dsn= dsn[m:(N+m)]
+    dsn = dsn ./ sum(dsn)
+
+ 
+    return dsn, f_total
+end 
 """
 selection on juviniles 
 """
@@ -166,7 +193,8 @@ function init_population(A_max, survival, fecundity, r , K, theta, s, min, max, 
     b = a/K
     f(x) = a*x/(1+b*x)
     g(x )= f(x) - x/LEP
-    x_eq = Roots.find_zero(g, (1, K*LEP))
+    print(LEP)
+    x_eq = Roots.find_zero(g, (10^-6, 10^6*K*LEP))
     y_eq = f(x_eq)
     
     abundance = zeros(A_max)
