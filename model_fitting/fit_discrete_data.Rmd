@@ -27,12 +27,16 @@ my_fn <- function(data, mapping, ...){
 
 ```{r}
 print(getwd())
-dat <- read.csv("data/set6_n100.csv")
-ggplot(dat,aes(x = X, y = N))+
+dat <- read.csv("data/set_8.csv")
+dat_1 <- read.csv("data/set_7.csv")
+dat$`genetic effects`<- "No effects"
+dat_1$`genetic effects` <- "strong effects"
+dat_2 <- rbind(dat,dat_1)
+ggplot(dat_2,aes(x = X, y = N, linetype = `genetic effects`))+
   geom_point()+
   geom_path()+
-  geom_point(aes(x = X, y = z))+
-  geom_path(aes(x = X, y = z), linetype = 2)+
+  xlab("Generations")+
+  ylab("Abundance")+
   theme_classic()
 ```
 

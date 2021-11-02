@@ -153,7 +153,7 @@ function selection_and_reproduction(population)
     return dsn, f_total
 end 
 
-
+ 
 
 """
 Updates the age structure of the popuatlion and adds recruits
@@ -224,6 +224,18 @@ function init_population(A_max, survival, fecundity, r , K, theta, s, min, max, 
     pop = population(abundance, trait, grid, fecundity, survival,A_max, a, b, gradient,m,Vle)
     
     return pop
+end 
+
+## analysis
+"""
+This funcction computes fittness in terms of the average 
+probability of survival of juviniles produved by a popualtion
+assuming selection acts on the survival of juviniles to recruitment. 
+"""
+function fittness(population)
+    dsn, f = reproduction(population)
+    W = sum(dsn .* population.gradient)
+    return W
 end 
 
 end # module 

@@ -92,4 +92,5 @@ add_rows <- function(dat, x0, x0_lag,
   
   return(list(dat = dat, x = d_ls$x, x_lag = d_ls$x_lag))
 }
-
+generate_data("data/set_7.csv", c(1.0,0), c(rep(0,10),rep(0.2,20)), c(rep(100,10),rep(100,20)),0.1, 0.1, 0.1, 3, 0.01, 0.005, 0.01)
+generate_data("data/set_8.csv", c(1.0,0), c(rep(0,10),rep(0.2,20)), c(rep(100,10),rep(100,20)),0.1, 0.1, 0.1, 0.0, 0.01, 0.005, 0.01)
