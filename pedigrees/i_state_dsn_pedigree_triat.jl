@@ -176,6 +176,15 @@ function ageing!(population, R, dsn_R)
     return population
 end 
 
-
+"""
+This funcction computes fittness in terms of the average 
+probability of survival of juviniles produved by a popualtion
+assuming selection acts on the survival of juviniles to recruitment. 
+"""
+function fittness(population)
+    dsn, f = reproduction(population)
+    W = sum(dsn .* population.gradient)
+    return W
+end 
     
 end # module 
