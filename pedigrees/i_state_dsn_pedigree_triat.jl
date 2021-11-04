@@ -183,7 +183,11 @@ assuming selection acts on the survival of juviniles to recruitment.
 """
 function fittness(population)
     dsn, f = reproduction(population)
-    W = sum(dsn .* population.gradient)
+    dsn = mapslices(sum,dsn,dims = 1)
+#     p1 = Plots.plot(transpose(dsn))
+#     Plots.plot!(transpose(dsn) .* population.gradient)
+#     return p1
+    W = sum(transpose(dsn) .* population.gradient)
     return W
 end 
     
