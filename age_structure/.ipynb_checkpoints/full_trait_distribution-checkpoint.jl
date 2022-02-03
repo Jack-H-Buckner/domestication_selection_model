@@ -29,6 +29,7 @@ mutable struct population
     A_max::Int64 # max age
     a::Float64 # stock recruit curve - based on total fecundity
     b::Float64
+    correction::Float64
     gradient::AbstractVector{Float64} # age dependent seleciton gradient columsn are ages
     m::Int64 # length of convolution kernel 
     Vle::AbstractVector{Float64} # convolution kernel 
@@ -109,7 +110,7 @@ Beverton Holt recruitment
 """
 function recruitment(f_total, population )
     R = population.a*f_total/(1+population.b*f_total )
-    return R
+    return R .* population.correction
 end 
 
 
@@ -153,6 +154,9 @@ function selection_and_reproduction(population)
     return dsn, f_total
 end 
 
+
+
+
  
 
 """
@@ -184,6 +188,18 @@ function ageing!(population, R, dsn_R)
 end 
 
 
+function V_star(Vle, s)
+    sigma_s = 1/s
+    V_prime = V -> (V*sigma_s^2/(V + sigma_s^2))/2 + Vle/2
+    V0 = Vle
+    V1 = V_prime(Vle)
+    while abs(V0-V1) > 10^-6
+        V0 = V1
+        V1 = V_prime(Vle)
+    end 
+    return V1
+end 
+
 function init_population(A_max, survival, fecundity, r , K, theta, s, min, max, dx, Vle)
     
     # set age distribution - equilibrium 
@@ -206,10 +222,10 @@ function init_population(A_max, survival, fecundity, r , K, theta, s, min, max, 
 
     # set trait at optimum value and variance = Vle
     grid = collect(min:dx:max)
-    d = Distributions.Normal(theta, sqrt(Vle))
+    d = Distributions.Normal(theta, sqrt(V_star(Vle, s)))
     trait = pdf.(d, grid)
     trait = trait ./sum(trait)
-    trait = transpose(repeat(transpose(trait),A_max))
+    trait_A = transpose(repeat(transpose(trait),A_max))
     
     
     # Vle
@@ -220,9 +236,53 @@ function init_population(A_max, survival, fecundity, r , K, theta, s, min, max, 
     
     # gradient
     gradient = exp.(-s/2*(grid .- theta).^2)
+    correction = 1/sum(trait .* gradient)
     
-    pop = population(abundance, trait, grid, fecundity, survival,A_max, a, b, gradient,m,Vle)
+    pop = population(abundance, trait_A, grid, fecundity, survival,A_max, a, b, correction, gradient,m,Vle)
     
+    return pop
+end 
+
+
+
+function init_population_2(A_max, survival, fecundity, R_star, alpha , beta, theta, s, min, max, dx, Vle, correction)
+    
+    # set age distribution - equilibrium 
+    LEP = age_structure_model.LEP(1.0, survival, fecundity, A_max)
+    
+    
+    abundance = zeros(A_max)
+    N = R_star
+    for i in 1:A_max
+        abundance[i] = N 
+        N *= survival[i]
+    end 
+    # set trait at optimum value and variance = Vle 
+    grid = collect(min:dx:max)
+    d = Distributions.Normal(theta, sqrt(V_star(Vle, s)))
+    trait = pdf.(d, grid)
+    trait = trait ./sum(trait)
+    trait_A = transpose(repeat(transpose(trait),A_max))
+    
+    
+    # Vle
+    de = Distributions.Normal(theta, sqrt(Vle/2))
+    grid_Vle = collect((theta-3*Vle):dx:(theta+3*Vle))
+    Vle = pdf.(de,grid_Vle)
+    m = length(Vle)
+    
+    # gradient
+    if correction
+        gradient = exp.(-s/2*(grid .- theta).^2)
+        correction = 1/sum(trait .* gradient)
+    else
+        correction = 1
+    end 
+    
+    
+    
+    pop = population(abundance, trait_A, grid, fecundity, survival,A_max, alpha, beta, correction, gradient,m,Vle)
+
     return pop
 end 
 
