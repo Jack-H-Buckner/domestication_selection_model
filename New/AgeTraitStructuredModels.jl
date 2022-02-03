@@ -69,6 +69,24 @@ function V_star(Vle, s)
     return (1/V1 + s)^(-1)
 end 
 
+"""
+     V_star_prime(Vle, s)
+
+Computes equilibrium variance given severgation varinace Vle/2 and
+slection strength s. measurement after reproduciton but before selection
+"""
+function V_star_prime(Vle, s)
+    #sigma_s = 1/s
+    V_prime = V -> (1/V + s)^(-1)/2 + Vle/2#V -> (V*sigma_s^2/(V + sigma_s^2))/2 + Vle/2
+    V0 = Vle
+    V1 = V_prime(Vle)
+    while abs(V0-V1) > 10^-6
+        V0 = V1
+        V1 = V_prime(V0)
+    end 
+    return V1
+end 
+
 function init(ageStructure, Vle, theta, s, min, max, dx)
 
     
@@ -88,13 +106,22 @@ function init(ageStructure, Vle, theta, s, min, max, dx)
     m = length(Vle)
     
     # gradient
+    d = Distributions.Normal(theta, sqrt(V_star_prime(Vle_, s)))
+    trait = pdf.(d, grid)
+    trait = trait ./ sum(trait)
     gradient = exp.(-s/2*(grid .- theta).^2)
     correction = 1/sum(trait .* gradient)
+    
+
+
 
     abundance = AgeStructuredModels.stable_age_structure(ageStructure)
     #return trait
     return population(abundance, trait_A, grid, ageStructure, gradient, m, Vle, correction, Vle_, s, theta)
 end 
+
+
+
 
 function init_imigrants(population, N, mean)
     grid = population.grid
@@ -139,6 +166,12 @@ function reset!(population,s)
     population.trait = trait_A
     
     # gradient
+    d = Distributions.Normal(population.theta, 
+                            sqrt(V_star_prime(population.Vle_,s)))
+    trait = pdf.(d, population.grid)
+    trait = trait ./ sum(trait)
+    trait = trait ./sum(trait)
+    
     population.gradient = exp.(-s/2*(population.grid .- population.theta).^2)
     population.correction =  1/sum(trait .* population.gradient)
 
@@ -233,7 +266,7 @@ Beverton Holt recruitment
 assumes that selection occurs after recruitment 
 """
 function recruitment(f_total, population )
-    R = population.correction * population.ageStructure.SRCurve(f_total)
+    R = population.correction * population.ageStructure.SRCurve(f_total) #
     return R 
 end 
 
@@ -310,19 +343,19 @@ function ageing!(population, R, dsn_R)
     plus_group = sum(population.abundance[end-1:end])
     new_A = zeros(population.ageStructure.Amax)
     new_A[1] = R 
-    new_A[end] = plus_group
+    #new_A[end] = plus_group
     
 
     
-    new_A[2:end-1] = population.abundance[1:end-2]
+    new_A[2:end] = population.abundance[1:end-1]
     
     N = length(population.grid)
     new_dsn = zeros(N,population.ageStructure.Amax)
     new_dsn[:,1] = dsn_R
-    plus_group_dsn = (population.abundance[end-1]*population.trait[:,end-1] .+ population.abundance[end]*population.trait[:,end]) ./plus_group
-    new_dsn[:,end] = plus_group_dsn
+    #plus_group_dsn = (population.abundance[end-1]*population.trait[:,end-1] .+ population.abundance[end]*population.trait[:,end]) ./plus_group
+    #new_dsn[:,end] = plus_group_dsn
     
-    new_dsn[:,2:end-1] = population.trait[:,1:end-2]
+    new_dsn[:,2:end] = population.trait[:,1:end-1]
     
     population.abundance = new_A
     population.trait = new_dsn
@@ -330,8 +363,21 @@ function ageing!(population, R, dsn_R)
     #return population
 end 
 
-
-
+"""
+    simulates dynamics and updates the correction factor once trait dsn has equilibrated 
+"""
+function update_correction!(population)
+    for i in 1:1000
+        dsn, R = reproduction(population)
+        R = recruitment(R, population )
+        dsn, R = selection(dsn, R, population)
+        ageing!(population, R, dsn)
+    end 
+    dsn, R = reproduction(population)
+    dsn, R = selection(dsn, 1, population)
+    population.correction = 1/R
+    population.abundance = AgeStructuredModels.stable_age_structure(population.ageStructure)
+end 
 
 ###################################
 ### time step/ update functions ###

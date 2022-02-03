@@ -56,21 +56,27 @@ long_lived_survival = vcat(repeat([0.9],80), repeat([0.98],A_max - 80))
 
 
 # life time egg production 
-Wood_2007_LEP1 = sum(Wood_07_F1_vec .* Wood_07_m .^a)
-Wood_2007_impact1 = Wood_07_F1_vec  .* Wood_07_m .^a
+psurvival = Wood_07_m .^a
+psurvival = psurvival./psurvival[1]
+Wood_2007_LEP1 = sum(Wood_07_F1_vec .* psurvival)
+Wood_2007_impact1 = Wood_07_F1_vec  .* psurvival
 
-Wood_2007_LEP2 = sum(Wood_07_F2_vec  .* Wood_07_m .^a)
-Wood_2007_impact2 = Wood_07_F2_vec  .* Wood_07_m .^a
+psurvival = Wood_07_m .^a
+psurvival = psurvival./psurvival[1]
+Wood_2007_LEP2 = sum(Wood_07_F2_vec  .* psurvival)
+Wood_2007_impact2 = Wood_07_F2_vec  .* psurvival
 
-Smyth_2016_LEP = sum(Smyth_16_F_vec  .* Smyth_16_m .^a)
-Smyth_2016_impact = Smyth_16_F_vec  .* Smyth_16_m .^a
+psurvival = Smyth_16_m .^a
+psurvival = psurvival./psurvival[1]
+Smyth_2016_LEP = sum(Smyth_16_F_vec  .* psurvival)
+Smyth_2016_impact = Smyth_16_F_vec  .* psurvival
 
 psurvival = zeros(A_max)
 psurvival[1] = long_lived_survival[1]
 for i in 2:A_max
     psurvival[i] = long_lived_survival[i] * psurvival[i-1]
 end 
-
+psurvival = psurvival ./ psurvival[1]
 Wood_2007_LEP1_ll = sum(Wood_07_F1_vec  .* psurvival)
 Wood_2007_impact1_ll = Wood_07_F1_vec  .* psurvival
 
