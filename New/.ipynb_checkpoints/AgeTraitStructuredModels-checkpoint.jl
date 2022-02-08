@@ -226,12 +226,10 @@ function reproduction(population)
     f_total = sum(population.abundance .* population.ageStructure.Fecundity)
     dsn = population.trait * (population.abundance .* 
                                 population.ageStructure.Fecundity) ./ f_total
-    
 
     #Plots.plot!(population.grid,dsn )
     # convolution - random mating 
     N = length(population.grid)-1
-    dsn_zs = vcat(dsn,zeros(length(dsn)))
     dsn = DSP.conv(dsn, dsn)[1:2:(2*N+1)]
     dsn = dsn./sum(dsn)
     
@@ -458,8 +456,8 @@ immigration occurs before selection.
 """
 function time_step_ISD!(population)
     dsn, R = AgeTraitStructuredModels.reproduction(population)
-    R = AgeTraitStructuredModels.recruitment(R, population )
     dsn, R = AgeTraitStructuredModels.selection(dsn, R, population)
+    R = AgeTraitStructuredModels.recruitment(R, population, true )
     AgeTraitStructuredModels.ageing!(population, R, dsn)
 end 
 
@@ -467,10 +465,55 @@ end
 function time_step_ISD!(population, immigrants)
     dsn, R = AgeTraitStructuredModels.reproduction(population)
     dsn, R = AgeTraitStructuredModels.immigration(dsn, R, immigrants)
-    R = AgeTraitStructuredModels.recruitment(R, population )
     dsn, R = AgeTraitStructuredModels.selection(dsn, R, population)
+    R = AgeTraitStructuredModels.recruitment(R, population, true )
     AgeTraitStructuredModels.ageing!(population, R, dsn)
 end 
+
+
+"""
+    time_step_ISD!(populations; immigrants)
+updates the popualtion with selection before density dependnece. If immigrants are included
+immigration occurs before selection.
+"""
+function time_step_SDI!(population)
+    dsn, R = AgeTraitStructuredModels.reproduction(population)
+    dsn, R = AgeTraitStructuredModels.selection(dsn, R, population)
+    R = AgeTraitStructuredModels.recruitment(R, population, true )
+    AgeTraitStructuredModels.ageing!(population, R, dsn)
+end 
+
+
+function time_step_SDI!(population, immigrants)
+    dsn, R = AgeTraitStructuredModels.reproduction(population)
+    dsn, R = AgeTraitStructuredModels.selection(dsn, R, population)
+    R = AgeTraitStructuredModels.recruitment(R, population, true )
+    dsn, R = AgeTraitStructuredModels.immigration(dsn, R, immigrants)
+    AgeTraitStructuredModels.ageing!(population, R, dsn)
+end 
+
+
+"""
+    time_step_ISD!(populations; immigrants)
+updates the popualtion with selection before density dependnece. If immigrants are included
+immigration occurs before selection.
+"""
+function time_step_SID!(population)
+    dsn, R = AgeTraitStructuredModels.reproduction(population)
+    dsn, R = AgeTraitStructuredModels.selection(dsn, R, population)
+    R = AgeTraitStructuredModels.recruitment(R, population, true )
+    AgeTraitStructuredModels.ageing!(population, R, dsn)
+end 
+
+
+function time_step_SID!(population, immigrants)
+    dsn, R = AgeTraitStructuredModels.reproduction(population)
+    dsn, R = AgeTraitStructuredModels.selection(dsn, R, population)
+    dsn, R = AgeTraitStructuredModels.immigration(dsn, R, immigrants)
+    R = AgeTraitStructuredModels.recruitment(R, population, true )
+    AgeTraitStructuredModels.ageing!(population, R, dsn)
+end 
+
 
 
 
