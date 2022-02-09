@@ -4,11 +4,17 @@
 module TraitStructuredPopulation
 
 
+using Distributions
+using DSP
+using Plots
+using Roots
+using FFTW
+
 
 mutable struct population
     ### states
     #full distribution 
-    N::flaot64
+    N::Float64
     trait::AbstractVector{Float64} # columns are ages 
     grid::AbstractVector{Float64} # nodes where trait is defined
     
@@ -143,9 +149,8 @@ function reset!(population,Nstar)
                            sqrt( V_star(population.Vle_, population.s)))
     trait = pdf.(d, population.grid)
     trait = trait ./sum(trait)
-    trait_A = transpose(repeat(transpose(trait),population.ageStructure.Amax))
-    population.trait = trait_A
-    populations.abundance = Nstar
+    population.trait = trait
+    population.N = Nstar
 end 
 
 
@@ -193,7 +198,7 @@ end
 
 
 
-function reproduction!(population)
+function reproduction(population)
 
 
     dsn = population.trait 
@@ -215,7 +220,34 @@ function reproduction!(population)
     dsn= dsn[m:(N+m)]
     dsn = dsn ./ sum(dsn)
 
-    return populations.N, dsn
+    return population.N, dsn
+    
+end 
+
+
+function reproduction(population, im)
+
+    total = population.N + im.N
+    dsn = (population.N*population.trait .+ im.N*im.trait) ./ total
+    
+
+    #Plots.plot!(population.grid,dsn )
+    # convolution - random mating 
+    N = length(population.grid)-1
+    dsn = DSP.conv(dsn, dsn)[1:2:(2*N+1)]
+    dsn = dsn./sum(dsn)
+    
+
+    #Plots.plot!(population.grid,dsn )
+
+    # convolution inperfect inheritance 
+    m = convert(Int64,floor(population.m/2+1))
+    dsn = DSP.conv(dsn, population.Vle)
+ 
+    dsn= dsn[m:(N+m)]
+    dsn = dsn ./ sum(dsn)
+
+    return total, dsn
     
 end 
 
@@ -226,8 +258,8 @@ end
 
 popualtion dynamics with noraml disn and constant variance aproximation
 """
-function reproduction_N!(population)
-    return populations.N, population.mu, population.V
+function reproduction_N(population)
+    return population.N, population.mu
 end 
 
 """
@@ -235,11 +267,14 @@ end
 
 popualtion dynamics with noraml disn and constant variance aproximation
 """
-function reproduction_N!(population, im)
-    total = populations.N + im.N
-    mu = (populations.N*population.mu + im.N*im.mu) / total
-    return mu, total
+function reproduction_N(population, im)
+    total = population.N + im.N
+    p = population.N / total
+    N = total*[p^2,2*p*(1-p),(1-p)^2]
+    mu = [population.mu, (im.mu + population.mu)/2, im.mu, ]
+    return N, mu
 end 
+
 
 
 
@@ -251,17 +286,100 @@ function selection(dsn, N, population)
     survival = sum(dsn)
     N = N * survival
     dsn = dsn ./ survival
-    return dsn, N
+    return N, dsn
 end 
 
-function selection_N(mu, V, N, population)
-    mu = (mu/V + population.s*population.theta)*(1/V+s)^(-1)
+
+
+
+function recruitment(N, population)
+    return population.SRCurve(N)
+end 
+
+function recruitment_N(N::AbstractVector{Float64}, population)
+    Nt = population.SRCurve(sum(N))
+    p = N ./ sum(N)
+    return  Nt .* p
+end 
+
+function recruitment_N(N::Float64, population)
+    return  population.SRCurve(N)
+end 
+
     
-    return mu, N
+function selection_N(mu::AbstractVector{Float64}, V, N::AbstractVector{Float64}, population)
+    Vint = V
+    V_prime = (1/Vint + population.s)^(-1)
+    mu_prime = (mu./Vint .+ population.s*population.theta).*V_prime
+    
+    
+    
+    p = exp.(-1/2*((mu./sqrt(V)).^2 .+ population.s*population.theta^2 .-(mu_prime./sqrt(V_prime)).^2))
+    p .*= sqrt(V_prime/V)
+    
+    return p.*N, mu_prime
+end 
+
+    
+function selection_N(mu::Float64, V, N::Float64, population)
+    Vint = V
+    V_prime = (1/Vint + population.s)^(-1)
+    mu_prime = (mu/Vint .+ population.s*population.theta)*V_prime
+    
+    
+    
+    p = exp(-1/2*((mu/sqrt(V))^2 + population.s*population.theta^2 -(mu_prime/sqrt(V_prime))^2))
+    p *= sqrt(V_prime/V)
+    
+
+    return p*N, mu_prime
+end 
+    
+
+function time_step_DSI(population)
+    N,dsn = reproduction(population)
+    N = recruitment(population.N, population)
+    N, dsn = selection(dsn, N, population)
+    population.N = N
+    population.trait = dsn
+end 
+
+
+function time_step_DSI(population, im)
+    N,dsn = reproduction(population, im)
+    N = recruitment(population.N, population)
+    N, dsn = selection(dsn, N, population)
+    population.N = N
+    population.trait = dsn
 end 
 
 
 
+function time_step_DSI_N(population)
+    N,mu = reproduction_N(population)
+    N = recruitment(population.N, population)
+    N, mu = selection_N(mu,population.V, N, population)
+    population.N = N
+    population.mu = mu
+end 
 
+
+function time_step_DSI_N(population, im)
+    N, mu = reproduction_N(population, im)
+    N = recruitment_N(N, population)
+    N, mu = selection_N(mu, population.V, N, population)
+
+    population.N = sum(N)
+    p = N./sum(N)
+    population.mu = sum(p.*mu)
+end 
+
+
+
+function trait_moments(population)
+    mu = sum(population.trait .* population.grid)
+    sigma = sum(population.trait .* (population.grid .- mu).^2)
+    return mu, sqrt(sigma)
+end 
 
 end # module 
