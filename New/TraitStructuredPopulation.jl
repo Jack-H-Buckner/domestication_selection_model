@@ -270,12 +270,10 @@ popualtion dynamics with noraml disn and constant variance aproximation
 function reproduction_N(population, im)
     total = population.N + im.N
     p = population.N / total
-    N = total*[p^2,2*p*(1-p),(1-p)^2]
-    mu = [population.mu, (im.mu + population.mu)/2, im.mu, ]
-    return N, mu
+#     N = total*[p^2,2*p*(1-p),(1-p)^2]
+#     mu = [population.mu, (im.mu + population.mu)/2, im.mu, ]
+    return total, (population.mu * population.N + im.mu * im.N)/total
 end 
-
-
 
 
 """
@@ -286,6 +284,7 @@ function selection(dsn, N, population)
     survival = sum(dsn)
     N = N * survival
     dsn = dsn ./ survival
+   
     return N, dsn
 end 
 
@@ -296,49 +295,25 @@ function recruitment(N, population)
     return population.SRCurve(N)
 end 
 
-function recruitment_N(N::AbstractVector{Float64}, population)
-    Nt = population.SRCurve(sum(N))
-    p = N ./ sum(N)
-    return  Nt .* p
-end 
-
-function recruitment_N(N::Float64, population)
-    return  population.SRCurve(N)
-end 
 
     
-function selection_N(mu::AbstractVector{Float64}, V, N::AbstractVector{Float64}, population)
-    Vint = V
-    V_prime = (1/Vint + population.s)^(-1)
-    mu_prime = (mu./Vint .+ population.s*population.theta).*V_prime
-    
-    
-    
-    p = exp.(-1/2*((mu./sqrt(V)).^2 .+ population.s*population.theta^2 .-(mu_prime./sqrt(V_prime)).^2))
-    p .*= sqrt(V_prime/V)
-    
-    return p.*N, mu_prime
-end 
 
     
 function selection_N(mu::Float64, V, N::Float64, population)
-    Vint = V
-    V_prime = (1/Vint + population.s)^(-1)
-    mu_prime = (mu/Vint .+ population.s*population.theta)*V_prime
-    
+    V_prime = (1/V + population.s)^(-1)
+    mu_prime = (mu/V .+ population.s*population.theta)*V_prime
     
     
     p = exp(-1/2*((mu/sqrt(V))^2 + population.s*population.theta^2 -(mu_prime/sqrt(V_prime))^2))
     p *= sqrt(V_prime/V)
-    
-
+  
     return p*N, mu_prime
 end 
     
 
 function time_step_DSI(population)
     N,dsn = reproduction(population)
-    N = recruitment(population.N, population)
+    N = recruitment(N, population)
     N, dsn = selection(dsn, N, population)
     population.N = N
     population.trait = dsn
@@ -347,7 +322,7 @@ end
 
 function time_step_DSI(population, im)
     N,dsn = reproduction(population, im)
-    N = recruitment(population.N, population)
+    N = recruitment(N, population)
     N, dsn = selection(dsn, N, population)
     population.N = N
     population.trait = dsn
@@ -357,7 +332,7 @@ end
 
 function time_step_DSI_N(population)
     N,mu = reproduction_N(population)
-    N = recruitment(population.N, population)
+    N = recruitment(N, population)
     N, mu = selection_N(mu,population.V, N, population)
     population.N = N
     population.mu = mu
@@ -366,12 +341,11 @@ end
 
 function time_step_DSI_N(population, im)
     N, mu = reproduction_N(population, im)
-    N = recruitment_N(N, population)
+    N = recruitment(N, population)
     N, mu = selection_N(mu, population.V, N, population)
 
-    population.N = sum(N)
-    p = N./sum(N)
-    population.mu = sum(p.*mu)
+    population.N = N
+    population.mu = mu
 end 
 
 
@@ -380,6 +354,25 @@ function trait_moments(population)
     mu = sum(population.trait .* population.grid)
     sigma = sum(population.trait .* (population.grid .- mu).^2)
     return mu, sqrt(sigma)
+end 
+
+function fitness(population)
+    return sum(population.gradient .* population.trait)
+end 
+
+
+
+function fitness_N( population)
+    mu = population.mu
+    V = population.V
+    V_prime = (1/V + population.s)^(-1)
+    mu_prime = (mu/V .+ population.s*population.theta)*V_prime
+    
+    
+    p = exp(-1/2*((mu/sqrt(V))^2 + population.s*population.theta^2 -(mu_prime/sqrt(V_prime))^2))
+    p *= sqrt(V_prime/V)
+  
+    return p
 end 
 
 end # module 
