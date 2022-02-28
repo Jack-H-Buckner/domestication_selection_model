@@ -20,7 +20,7 @@ using DSP
 using Plots
 using Roots
 using FFTW
-
+using Roots
 
 
 mutable struct population
@@ -178,6 +178,29 @@ function reset!(population,s)
     population.abundance = AgeStructuredModels.stable_age_structure(population.ageStructure)
 end 
 
+
+function selection_N(s, theta, mu, V)
+    V_prime = (1/V + s)^(-1)
+    mu_prime = (mu/V .+ s*theta)*V_prime
+    
+    p = exp(-1/2*((mu/sqrt(V))^2 + s*theta^2 -(mu_prime/sqrt(V_prime))^2))
+    p *= sqrt(V_prime/V)
+    return p
+end 
+
+function RRS(mu,s)
+    V1 = V_star_prime(1, s)
+    W1 = selection_N(s, 0, 0, V1)
+    W2 = selection_N(s, 0, mu, 1)
+    return W2/W1
+end 
+
+function solve_trait_difference(RRS_,s)
+    return Roots.find_zeros(x -> RRS(x,s) - RRS_,[0,50.0])[1]
+end
+
+
+
 """
     reset_immigrants!(im, N, mean)
 
@@ -189,6 +212,17 @@ function reset_immigrants!(immigrants,population, N, mean)
     immigrants.trait= immigrants.trait ./sum(immigrants.trait)
     immigrants.N = N
 end 
+
+
+function reset_immigrants_RRS!(immigrants,population, N, RRS)
+    mean = solve_trait_difference(RRS,population.s)
+    d = Distributions.Normal(mean, sqrt(population.Vle_))
+    immigrants.trait = Distributions.pdf.(d, population.grid)
+    immigrants.trait= immigrants.trait ./sum(immigrants.trait)
+    immigrants.N = N
+end 
+
+
 """
 returns trait distribution for new age class and 
 the total spawning stock fecundity.
@@ -376,6 +410,96 @@ function update_correction!(population)
     population.correction = 1/R
     population.abundance = AgeStructuredModels.stable_age_structure(population.ageStructure)
 end 
+
+###################################
+### Demographic stochasticity   ###
+###################################
+using Distributions
+
+"""
+selection on juviniles 
+"""
+function selection_S(dsn, N, population)
+    dsn = dsn .* population.gradient
+    survival = sum(dsn)
+    N = rand(Distributions.Binomial(N, survival),1)[1]
+    dsn = dsn ./ survival
+    return dsn, N
+end 
+
+
+"""
+Beverton Holt recruitment 
+
+f_total - number of eggs
+populations - populaiton objct for parameters
+before - boolian does selection occur before or after selection 
+sigma - optional amount of environmetnal variability 
+"""
+function recruitment_S(f_total, population, before)
+    if before 
+        f_total *= population.correction 
+        R = population.ageStructure.SRCurve(f_total)
+    else
+        R = population.correction * population.ageStructure.SRCurve(f_total)
+    end 
+    R = rand(Distributions.Poisson(R),1)[1]
+    return R 
+end 
+
+function recruitment_S(f_total, population, before, sigma)
+    if before 
+        f_total *= population.correction 
+        R = population.ageStructure.SRCurve(f_total)
+    else
+        R = population.correction * population.ageStructure.SRCurve(f_total)
+    end 
+    epsilon_t = rand(Distributions.Noraml(0,sigma),1)[1]
+    R = rand(Distributions.Poisson(R*epsilon_t),1)[1]
+    return R 
+end 
+
+"""
+    immigration(dsn,N, immigrants)
+
+Immigration of juviniles. This function is designed for populations 
+"""
+function immigration_S(dsn,N, immigrants)
+    N_total = N + immigrants.N
+    p = N/N_total
+    dsn = p.*dsn .+ (1-p).* immigrants.trait
+    return dsn, rand(distributions.Poisson(N_total,1)[1])
+end 
+
+"""
+Updates the age structure of the popuatlion and adds recruits
+"""
+function ageing_S!(population, R, dsn_R)
+    
+    for i in 1:length(population.abundance)
+        Na = rand(Distributions.Binomial(population.abundance[i], population.ageStructure.Survival[i]))[1]
+        population.abundance[i] = Na
+    end 
+
+    new_A = zeros(population.ageStructure.Amax)
+    new_A[1] = R 
+    
+
+    
+    new_A[2:end] = population.abundance[1:end-1]
+    
+    N = length(population.grid)
+    new_dsn = zeros(N,population.ageStructure.Amax)
+    new_dsn[:,1] = dsn_R
+
+    
+    new_dsn[:,2:end] = population.trait[:,1:end-1]
+    
+    population.abundance = new_A
+    population.trait = new_dsn
+    
+end 
+
 
 ###################################
 ### time step/ update functions ###
@@ -588,6 +712,74 @@ function trait_moments_recruits(population)
     sigma = sum(dsn .* (population.grid .- mu).^2)
     return mu, sqrt(sigma)
 end 
+
+
+
+
+
+
+##### functions for analysis 
+
+function equilibrium(population, update!, immigrants)
+    W0 = 10
+    W1 = AgeTraitStructuredModels.spawning_stock(population)
+    iter = 0
+    while abs(W0 - W1) > 10^-5.5
+        iter += 1
+        W0 = W1
+        update!(population, immigrants)
+        W1 = AgeTraitStructuredModels.spawning_stock(population)
+    end 
+
+    μrec, σrec = AgeTraitStructuredModels.trait_moments_recruits(population)
+    μSSB, σSSB = AgeTraitStructuredModels.trait_moments_spawning(population)
+    W = AgeTraitStructuredModels.fittness(population)
+    SSB = AgeTraitStructuredModels.spawning_stock(population)
+    rec = AgeTraitStructuredModels.recruitment(population)
+    return W, SSB, rec, μrec, σrec, μSSB, σSSB
+end  
+
+
+# before if immigration before density dependence 
+function min_outcomes(population,  update!, immigrants, T)
+    W0 = 10
+    F0 = 10
+    W1 = AgeTraitStructuredModels.spawning_stock(population)
+    F1 = AgeTraitStructuredModels.fittness(population)
+    iter = 0
+    Fmin = -1
+    μrec = 0.0
+    σrec = 0.0
+    flip = true
+    while (W0 > W1) | flip
+        iter += 1
+        W0 = W1
+        F0 = F1
+        if iter < T
+             update!(population, immigrants)
+        else
+             update!(population)
+        end
+        W1 = AgeTraitStructuredModels.spawning_stock(population)
+        F1 = AgeTraitStructuredModels.fittness(population)
+        if (F0 < F1) & (Fmin == -1)
+            Fmin = F1
+            μrec, σrec = AgeTraitStructuredModels.trait_moments_recruits(population)
+        end 
+        
+        if flip & (W0 > W1)
+            flip = false
+        end 
+        
+    end 
+    SSB = W1
+    W = Fmin
+    return W, SSB, μrec, σrec
+end 
+
+
+
+
 
 end # module 
 
