@@ -45,8 +45,18 @@ function update_BevetonHolt_LEP!(sr, LEP::Float64)
     sr.LEP = LEP
 end 
 
+"""
+calcualtes density independent egg survivorship
+"""
+function density_independent(x,sr)
+    x*sr.a
+end 
 
-
-
+"""
+calcualtes density dependent egg survivorship
+"""
+function density_dependent(x,sr)
+    1/(1+sr.b*x/sr.a)
+end 
 
 end 

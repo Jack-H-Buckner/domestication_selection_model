@@ -443,6 +443,7 @@ function recruitment_S(f_total, population, before)
     else
         R = population.correction * population.ageStructure.SRCurve(f_total)
     end 
+
     R = rand(Distributions.Poisson(R),1)[1]
     return R 
 end 
@@ -454,10 +455,12 @@ function recruitment_S(f_total, population, before, sigma)
     else
         R = population.correction * population.ageStructure.SRCurve(f_total)
     end 
-    epsilon_t = rand(Distributions.Noraml(0,sigma),1)[1]
-    R = rand(Distributions.Poisson(R*epsilon_t),1)[1]
+    epsilon_t = rand(Distributions.Normal(-0.5*sigma^2,sigma),1)[1]
+    R = rand(Distributions.Poisson(R*exp(epsilon_t)) ,1)[1]
     return R 
 end 
+
+
 
 """
     immigration(dsn,N, immigrants)
@@ -468,7 +471,7 @@ function immigration_S(dsn,N, immigrants)
     N_total = N + immigrants.N
     p = N/N_total
     dsn = p.*dsn .+ (1-p).* immigrants.trait
-    return dsn, rand(distributions.Poisson(N_total,1)[1])
+    return dsn, rand(Distributions.Poisson(N_total),1)[1]
 end 
 
 """
@@ -477,7 +480,7 @@ Updates the age structure of the popuatlion and adds recruits
 function ageing_S!(population, R, dsn_R)
     
     for i in 1:length(population.abundance)
-        Na = rand(Distributions.Binomial(population.abundance[i], population.ageStructure.Survival[i]))[1]
+        Na = rand(Distributions.Binomial(floor(Int,population.abundance[i]), population.ageStructure.Survival[i]))[1]
         population.abundance[i] = Na
     end 
 
@@ -638,7 +641,66 @@ function time_step_SID!(population, immigrants)
     AgeTraitStructuredModels.ageing!(population, R, dsn)
 end 
 
+###################################
+### Demographic stochasticity   ###
+###################################
 
+"""
+    time_step_DSI!(populations; immigrants)
+updates the popualtion with density dependnece before selection. If immigrants are included
+immigration occurs last
+"""
+function time_step_DSI_S!(population)
+    dsn, R = AgeTraitStructuredModels.reproduction(population)
+    R = AgeTraitStructuredModels.recruitment_S(R, population, false )
+    dsn, R = AgeTraitStructuredModels.selection_S(dsn, R, population)
+    AgeTraitStructuredModels.ageing_S!(population, R, dsn)
+end 
+
+
+function time_step_DSI_S!(population, immigrants)
+    dsn, R = AgeTraitStructuredModels.reproduction(population)
+    R = AgeTraitStructuredModels.recruitment_S(R, population, false )
+    dsn, R = AgeTraitStructuredModels.selection_S(dsn, R, population)
+    dsn, R = AgeTraitStructuredModels.immigration_S(dsn, R, immigrants)
+    AgeTraitStructuredModels.ageing_S!(population, R, dsn)
+end 
+
+function time_step_DSI_S!(population, mu, sigma::Float64)
+    dsn, R = AgeTraitStructuredModels.reproduction(population)
+    R = AgeTraitStructuredModels.recruitment_S(R, population, false,sigma )
+    dsn, R = AgeTraitStructuredModels.selection_S(dsn, R, population)
+    AgeTraitStructuredModels.ageing_S!(population, R, dsn)
+end 
+
+
+function time_step_DSI_S!(population, immigrants, mu, sigma::Float64)
+    dsn, R = AgeTraitStructuredModels.reproduction(population)
+    R = AgeTraitStructuredModels.recruitment_S(R, population, false,sigma )
+    dsn, R = AgeTraitStructuredModels.selection_S(dsn, R, population)
+    dsn, R = AgeTraitStructuredModels.immigration_S(dsn, R, immigrants)
+    AgeTraitStructuredModels.ageing_S!(population, R, dsn)
+end 
+"""
+    time_step_DIS!(populations; immigrants)
+updates the popualtion with density dependnece before selection. If immigrants are included
+immigration occurs before selection.
+"""
+function time_step_DIS_S!(population)
+    dsn, R = AgeTraitStructuredModels.reproduction(population)
+    R = AgeTraitStructuredModels.recruitment_S(R, population, false )
+    dsn, R = AgeTraitStructuredModels.selection_S(dsn, R, population)
+    AgeTraitStructuredModels.ageing_S!(population, R, dsn)
+end 
+
+
+function time_step_DIS_S!(population, immigrants)
+    dsn, R = AgeTraitStructuredModels.reproduction(population)
+    R = AgeTraitStructuredModels.recruitment_S(R, population, false )
+    dsn, R = AgeTraitStructuredModels.immigration_S(dsn, R, immigrants)
+    dsn, R = AgeTraitStructuredModels.selection_S(dsn, R, population)
+    AgeTraitStructuredModels.ageing_S!(population, R, dsn)
+end
 
 
 

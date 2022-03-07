@@ -46,59 +46,17 @@ function update_BevetonHolt_LEP!(sr, LEP::Float64)
 end 
 
 """
-    quilibrium_size(survival::AbstractVector{Float64}, R_star::Float64, Phi::Function )
-
-survival - vertor probility of surviving from age a to a+1
-R_star - Float recruitment rate
-Phi - Function if supplied weights the population by age
+calcualtes density independent egg survivorship
 """
-function equilibrium_size(survival::AbstractVector{Float64}, R_star::Float64, Phi::Function )
-    N = R_star
-    acc = 0
-    for i in 1:length(survival)
-        acc += Phi(i)*N
-        N *= survival[i]*N
-    end 
-    return acc
-end 
-
-function equilibrium_size(survival::AbstractVector{Float64}, R_star::Float64)
-    N = R_star
-    acc = 0
-    for i in 1:length(survival)
-        acc += N
-        N *= survival[i]*N
-    end 
-    return acc
+function density_independent(x,sr)
+    x*sr.a
 end 
 
 """
-    solve_Rstar(N::Float64, survival::AbstractVector{Float64})
-
-N - float equilibrium population size 
-N - survival rate
-Amat - int if provided is used as age of maturation, and will assume N is tartegt size of matru population
-Phi - funtion if provided is used as a age specific weight for calcualting pop size 
+calcualtes density dependent egg survivorship
 """
-function solve_Rstar(N::Float64, survival::AbstractVector{Float64})
-    f = x -> equilibrium_size(survival, x) - N
-    R_star = Roots.find_zero(f, 0, 100.0*N)
-    return R_star
+function density_dependent(x,sr)
+    1/(1+sr.b*x/sr.a)
 end 
-
-function solve_Rstar(N::Float64, survival::AbstractVector{Float64}, Amat::Float64)
-    Phi = x -> 1. * (x<Amat)
-    f = x -> equilibrium_size(survival, x, Phi) - N
-    R_star = Roots.find_zero(f, 0, 100.0*N)
-    return R_star
-end 
-
-function solve_Rstar(N::Float64, survival::AbstractVector{Float64}, Phi::Function)
-    f = x -> equilibrium_size(survival, x, Phi) - N
-    R_star = Roots.find_zero(f, 0, 100.0*N)
-    return R_star
-end 
-
-
 
 end 
