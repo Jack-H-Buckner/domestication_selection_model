@@ -670,6 +670,7 @@ function reproduction_hatchery_slakin(population, Njuviniles, Nspawning)
     
     @assert Nspawning < length(population.individuals)
     
+    # hatchery production 
     # get list of mature individuals 
     F = broadcast(ind -> population.ageStructureParams.Fecundity[ind.Age],  population.individuals)
     mature = F .> 0.0
@@ -684,15 +685,39 @@ function reproduction_hatchery_slakin(population, Njuviniles, Nspawning)
     if length(spawning_stock) != 0
         for i in 1:Njuviniles
         
-            push!(juviniles, init_juvinile(brood_stock, F, population.kernel, 0))
+            push!(juvinilesH, init_juvinile(brood_stock, F, population.kernel, 0))
             
         end 
         
     end
     
+    # Natrual production
     x = SSB(population)
     
+    R = population.ageStructureParams.SRCurve(x) * exp(E)
+    R *= population.correction
+    N = rand(Distributions.Poisson(R))
     
+    # get list of mature individuals 
+    F = broadcast(ind -> population.ageStructureParams.Fecundity[ind.Age],  population.individuals)
+    mature = F .> 0.0
+    spawning_stock = population.individuals[mature]
+    F = F[mature]
+    # sample a subset that will sapwn this year
+    spawning = rand(length(spawning_stock)) .< population.p_spawn
+    spawning_stock = spawning_stock[spawning]
+    F = F[spawning]
+    # init juviniles 
+    juviniles = []
+    
+    if length(spawning_stock) != 0
+        for i in 1:N
+        
+        push!(juviniles, init_juvinile(spawning_stock, F, population.kernel, 0))
+            
+        end 
+        
+    end
     
     return juvinilesH, juvinlesN
 end 
