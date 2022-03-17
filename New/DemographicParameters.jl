@@ -1,7 +1,9 @@
 module DemographicParameters
 
+include("AgeStructuredModels.jl")
 include("FecundityAgeRelationships.jl")
 include("StockRecruitCurves.jl")
+
 ##########################
 #### fecundity at age ####
 ##########################
@@ -122,5 +124,24 @@ Smyth_2016_T1 =  sum(a .* (Smyth_16_F_vec  .* Smyth_16_m .^a) ./ Smyth_2016_LEP)
 Wood_2007_T3 =  sum(a .* (Wood_07_F1_vec   .* psurvival) ./ Wood_2007_LEP1_ll)
 Wood_2007_T4 =  sum(a .* (Wood_07_F2_vec   .* psurvival) ./ Wood_2007_LEP2_ll)
 Smyth_2016_T2 =  sum(a .* (Smyth_16_F_vec  .* psurvival) ./ Smyth_2016_LEP_ll)
+
+
+################################
+### Age structure param sets ###
+################################
+
+
+mod_Smyth_2016 = AgeStructuredModels.init(150,Smyth_2016_sr,Smyth_2016_survival,Smyth_16_F_vec)
+
+mod_Smyth_2016_ll = AgeStructuredModels.init(150,Smyth_2016_ll_sr,long_lived_survival,Smyth_16_F_vec)
+
+mod_Wood_2007_1 = AgeStructuredModels.init(150,Wood_2007_1_sr,Wood_2007_survival,Wood_07_F1_vec)
+
+mod_Wood_2007_2 = AgeStructuredModels.init(150,Wood_2007_2_sr,Wood_2007_survival,Wood_07_F2_vec)
+
+mod_Wood_2007_ll1 = AgeStructuredModels.init(150,Wood_2007_1_ll_sr,long_lived_survival,Wood_07_F1_vec)
+
+mod_Wood_2007_ll2 = AgeStructuredModels.init(150,Wood_2007_2_ll_sr,long_lived_survival,Wood_07_F2_vec)
+
 
 end # modul 

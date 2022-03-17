@@ -25,8 +25,10 @@ using Roots
 
 mutable struct population
     # states
-    abundance::AbstractVector{Float64}
-    trait::AbstractMatrix{Float64} # columns are ages 
+    abundanceN::AbstractVector{Float64}
+    abundanceH::AbstractVector{Float64}
+    traitN::AbstractMatrix{Float64} # columns are ages 
+    traitH::AbstractMatrix{Float64}
     grid::AbstractVector{Float64} # nodes where trait is defined
     
     # parameters
@@ -97,6 +99,9 @@ function init(ageStructure, Vle, theta, s, min, max, dx)
     trait = trait ./sum(trait)
     trait_A = transpose(repeat(transpose(trait),ageStructure.Amax))
     
+    traitH = pdf.(d, grid)
+    traitH = traitH ./sum(traitH)
+    traitH = transpose(repeat(transpose(traitH),ageStructure.Amax))
     
     # Vle
     de = Distributions.Normal(theta, sqrt(Vle/2))
@@ -116,8 +121,9 @@ function init(ageStructure, Vle, theta, s, min, max, dx)
 
 
     abundance = AgeStructuredModels.stable_age_structure(ageStructure)
+    abundanceH = zeros(ageStructure.Amax)
     #return trait
-    return population(abundance, trait_A, grid, ageStructure, gradient, m, Vle, correction, Vle_, s, theta)
+    return population(abundance, abundanceH, trait_A, traitH, grid, ageStructure, gradient, m, Vle, correction, Vle_, s, theta)
 end 
 
 
@@ -144,8 +150,11 @@ function reset!(population)
     trait = pdf.(d, population.grid)
     trait = trait ./sum(trait)
     trait_A = transpose(repeat(transpose(trait),population.ageStructure.Amax))
-    population.trait = trait_A
-    populations.abundance = AgeStructuredModels.stable_age_structure(population.ageStructure)
+    traitH = transpose(repeat(transpose(trait),population.ageStructure.Amax))
+    population.traitN = trait_A
+    population.traitH = traitH
+    populations.abundanceN = AgeStructuredModels.stable_age_structure(population.ageStructure)
+    populations.abundanceH = zeros(ageStructure.Amax)
 end 
 
 
@@ -163,7 +172,9 @@ function reset!(population,s)
     trait = pdf.(d, population.grid)
     trait = trait ./sum(trait)
     trait_A = transpose(repeat(transpose(trait),population.ageStructure.Amax))
-    population.trait = trait_A
+    traitH = transpose(repeat(transpose(trait),population.ageStructure.Amax))
+    population.traitN = trait_A
+    population.traitH = traitH
     
     # gradient
     d = Distributions.Normal(population.theta, 
@@ -175,7 +186,8 @@ function reset!(population,s)
     population.gradient = exp.(-s/2*(population.grid .- population.theta).^2)
     population.correction =  1/sum(trait .* population.gradient)
 
-    population.abundance = AgeStructuredModels.stable_age_structure(population.ageStructure)
+    population.abundanceN = AgeStructuredModels.stable_age_structure(population.ageStructure)
+    population.abundanceH = zeros(population.ageStructure.Amax)
 end 
 
 
@@ -229,12 +241,14 @@ the total spawning stock fecundity.
 """
 function reproduction_fft(population)
 
-    f_total = sum(population.abundance .* population.ageStructure.Fecundity)
-    dsn = population.trait * (population.abundance .* 
-                population.ageStructure.Fecundity) ./ f_total
+    f_totalN = sum(population.abundanceN .* population.ageStructure.Fecundity)
+    f_totalH = sum(population.abundanceH .* population.ageStructure.Fecundity)
     
-
-    #Plots.plot!(population.grid,dsn )
+    dsnN = population.traitN * (population.abundanceN .*  population.ageStructure.Fecundity)# ./ f_totalN
+    dsnH = population.traitH * (population.abundanceH .*  population.ageStructure.Fecundity) #./ f_totalH
+    
+    dsn = (dsnN + dsnH)./ (f_totalN+f_totalH)
+    
     # convolution - random mating 
     N = length(population.grid)-1
     dsn_zs = vcat(dsn,zeros(length(dsn)))
@@ -242,7 +256,6 @@ function reproduction_fft(population)
     dsn = dsn./sum(dsn)
     
 
-    #Plots.plot!(population.grid,dsn )
 
     # convolution inperfect inheritance 
     m = convert(Int64,floor(population.m/2+1))
@@ -257,9 +270,13 @@ end
 
 function reproduction(population)
 
-    f_total = sum(population.abundance .* population.ageStructure.Fecundity)
-    dsn = population.trait * (population.abundance .* 
-                                population.ageStructure.Fecundity) ./ f_total
+    f_totalN = sum(population.abundanceN .* population.ageStructure.Fecundity)
+    f_totalH = sum(population.abundanceH .* population.ageStructure.Fecundity)
+    
+    dsnN = population.traitN * (population.abundanceN .*  population.ageStructure.Fecundity)# ./ f_totalN
+    dsnH = population.traitH * (population.abundanceH .*  population.ageStructure.Fecundity) #./ f_totalH
+    
+    dsn = (dsnN + dsnH)./ (f_totalN+f_totalH)
 
     #Plots.plot!(population.grid,dsn )
     # convolution - random mating 
@@ -278,8 +295,10 @@ function reproduction(population)
     dsn = dsn ./ sum(dsn)
 
  
-    return dsn, f_total
+    return dsn, f_totalN + f_totalH
 end 
+
+
 """
 selection on juviniles 
 """
@@ -290,7 +309,6 @@ function selection(dsn, N, population)
     dsn = dsn ./ survival
     return dsn, N
 end 
-
 
 
 """
@@ -321,17 +339,17 @@ end
 
 
 
-"""
-    immigration(dsn,N, immigrants)
+# """
+#     immigration(dsn,N, immigrants)
 
-Immigration of juviniles. This function is designed for populations 
-"""
-function immigration(dsn,N, immigrants)
-    N_total = N + immigrants.N
-    p = N/N_total
-    dsn = p.*dsn .+ (1-p).* immigrants.trait
-    return dsn, N_total
-end 
+# Immigration of juviniles. This function is designed for populations 
+# """
+# function immigration(dsn,immigrants)
+#     N_total = N + immigrants.N
+#     p = N/N_total
+#     dsn = p.*dsn .+ (1-p).* immigrants.trait
+#     return dsnN, dsnH,NN, NH
+# end 
 
 
 
@@ -364,35 +382,74 @@ end
 
 
 
-
  
 
 """
 Updates the age structure of the popuatlion and adds recruits
 """
 function ageing!(population, R, dsn_R)
-    population.abundance = population.abundance .* population.ageStructure.Survival
-    plus_group = sum(population.abundance[end-1:end])
-    new_A = zeros(population.ageStructure.Amax)
-    new_A[1] = R 
-    #new_A[end] = plus_group
     
+    population.abundanceN = population.abundanceN .* population.ageStructure.Survival
+    population.abundanceH = population.abundanceH .* population.ageStructure.Survival
+
+    new_N = zeros(population.ageStructure.Amax)
+    new_N[1] = R 
+    new_N[2:end] = population.abundanceN[1:end-1]
+    
+    
+    new_H = zeros(population.ageStructure.Amax)
+    new_H[1] = 0 
+    new_H[2:end] = population.abundanceH[1:end-1]
+    
+    N = length(dsn_R)
+    new_dsnN = zeros(N,population.ageStructure.Amax)
+    new_dsnN[:,2:end] = population.traitN[:,1:end-1]
+    new_dsnN[:,1] = dsn_R
+    
+    new_dsnH = zeros(N,population.ageStructure.Amax)
+    new_dsnH[:,2:end] = population.traitH[:,1:end-1]
+    new_dsnH[:,1] = zeros(length(dsn_R))
+    
+    population.abundanceN = new_N
+    population.traitN = new_dsnN
+    
+    population.abundanceH = new_H
+    population.traitH = new_dsnH
+    
+end 
+
+"""
+Updates the age structure of the popuatlion and adds recruits
+"""
+function ageing!(population, R, dsn_R, NH, dsnH)
+    
+    population.abundanceN = population.abundanceN .* population.ageStructure.Survival
+    population.abundanceH = population.abundanceH .* population.ageStructure.Survival
+
+    new_N = zeros(population.ageStructure.Amax)
+    new_N[1] = R 
+    new_N[2:end] = population.abundanceN[1:end-1]
+    
+    new_H = zeros(population.ageStructure.Amax)
+    new_H[1] = NH
+    new_H[2:end] = population.abundanceH[1:end-1]
+    
+    
+    N = length(dsn_R)
+    new_dsnN = zeros(N,population.ageStructure.Amax)
+    new_dsnN[:,2:end] = population.traitN[:,1:end-1]
+    new_dsnN[:,1] = dsn_R
+    
+    new_dsnH = zeros(N,population.ageStructure.Amax)
+    new_dsnH[:,2:end] = population.traitH[:,1:end-1]
+    new_dsnH[:,1] = dsnH
 
     
-    new_A[2:end] = population.abundance[1:end-1]
+    population.abundanceN = new_N
+    population.traitN = new_dsnN
     
-    N = length(population.grid)
-    new_dsn = zeros(N,population.ageStructure.Amax)
-    new_dsn[:,1] = dsn_R
-    #plus_group_dsn = (population.abundance[end-1]*population.trait[:,end-1] .+ population.abundance[end]*population.trait[:,end]) ./plus_group
-    #new_dsn[:,end] = plus_group_dsn
-    
-    new_dsn[:,2:end] = population.trait[:,1:end-1]
-    
-    population.abundance = new_A
-    population.trait = new_dsn
-    
-    #return population
+    population.abundanceH = new_H
+    population.traitH = new_dsnH
 end 
 
 """
@@ -525,8 +582,7 @@ function time_step_DSI!(population, immigrants)
     dsn, R = AgeTraitStructuredModels.reproduction(population)
     R = AgeTraitStructuredModels.recruitment(R, population )
     dsn, R = AgeTraitStructuredModels.selection(dsn, R, population)
-    dsn, R = AgeTraitStructuredModels.immigration(dsn, R, immigrants)
-    AgeTraitStructuredModels.ageing!(population, R, dsn)
+    AgeTraitStructuredModels.ageing!(population, R, dsn,immigrants.N, immigrants.trait)
 end 
 
 
@@ -546,9 +602,9 @@ end
 function time_step_DIS!(population, immigrants)
     dsn, R = AgeTraitStructuredModels.reproduction(population)
     R = AgeTraitStructuredModels.recruitment(R, population )
-    dsn, R = AgeTraitStructuredModels.immigration(dsn, R, immigrants)
     dsn, R = AgeTraitStructuredModels.selection(dsn, R, population)
-    AgeTraitStructuredModels.ageing!(population, R, dsn)
+    dsnH, RH = AgeTraitStructuredModels.selection(immigrants.trait, immigrants.N, population)
+    AgeTraitStructuredModels.ageing!(population, R, dsn, RH, dsnH)
 end 
 
 
@@ -723,7 +779,7 @@ end
 computes the number of individuals of age 1 in the population
 """
 function recruitment(population)
-    return population.abundance[1]
+    return population.abundanceN[1]
 end 
 
 
@@ -732,7 +788,7 @@ computes the number of individuals of age 1 in the population
 """
 function spawning_stock(population)
     max_F = argmax(population.ageStructure.Fecundity)
-    return sum(population.abundance .* population.ageStructure.Fecundity) ./ population.ageStructure.Fecundity[max_F]
+    return sum(population.abundanceN .* population.ageStructure.Fecundity) ./ population.ageStructure.Fecundity[max_F]
 end 
 
 
@@ -742,8 +798,8 @@ end
 returns the first two moments of the spawning stocks trait distirbution
 """
 function trait_moments_spawning(population)
-    f_total = sum(population.abundance .* population.ageStructure.Fecundity)
-    dsn = population.trait * (population.abundance .* 
+    f_total = sum(population.abundanceN .* population.ageStructure.Fecundity)
+    dsn = population.traitN * (population.abundanceN .* 
                 population.ageStructure.Fecundity) ./ f_total
     mu = sum(dsn .* population.grid)
     sigma = sum(dsn .* (population.grid .- mu).^2)
@@ -769,7 +825,7 @@ end
 returns the first two moments of the age one trait distirbution
 """
 function trait_moments_recruits(population)
-    dsn = population.trait[:,1] ./ sum(population.trait[:,1] )
+    dsn = population.traitN[:,1] ./ sum(population.traitN[:,1] )
     mu = sum(dsn .* population.grid)
     sigma = sum(dsn .* (population.grid .- mu).^2)
     return mu, sqrt(sigma)
@@ -782,61 +838,51 @@ end
 
 ##### functions for analysis 
 
-function equilibrium(population, update!, immigrants)
+function equilibrium(population, update!, immigrants,F)
     W0 = 10
     W1 = AgeTraitStructuredModels.spawning_stock(population)
     iter = 0
-    while abs(W0 - W1) > 10^-5.5
+    while (iter < 200) | (abs(W0 - W1) > 10^-7.5)
         iter += 1
         W0 = W1
+        population.abundanceH .= exp(-1*F).*population.abundanceH
         update!(population, immigrants)
-        W1 = AgeTraitStructuredModels.spawning_stock(population)
+        W1 = fittness(population)
     end 
-
-    μrec, σrec = AgeTraitStructuredModels.trait_moments_recruits(population)
-    μSSB, σSSB = AgeTraitStructuredModels.trait_moments_spawning(population)
-    W = AgeTraitStructuredModels.fittness(population)
-    SSB = AgeTraitStructuredModels.spawning_stock(population)
-    rec = AgeTraitStructuredModels.recruitment(population)
-    return W, SSB, rec, μrec, σrec, μSSB, σSSB
+    #println(iter)
+    μrec, σrec = trait_moments_recruits(population)
+    μSSB, σSSB = trait_moments_spawning(population)
+    W = fittness(population)
+    SSB = spawning_stock(population)
+    rec = recruitment(population)
+    return W #, SSB, rec#, μrec, σrec, μSSB, σSSB
 end  
 
 
 # before if immigration before density dependence 
-function min_outcomes(population,  update!, immigrants, T)
-    W0 = 10
+function min_outcomes(population,  update!, immigrants, T, F)
+
     F0 = 10
-    W1 = AgeTraitStructuredModels.spawning_stock(population)
-    F1 = AgeTraitStructuredModels.fittness(population)
+    F1 = fittness(population)
     iter = 0
-    Fmin = -1
-    μrec = 0.0
-    σrec = 0.0
-    flip = true
-    while (W0 > W1) | flip
+
+    while (iter < T-5) |(F0 < F1) #| flip
         iter += 1
-        W0 = W1
+
         F0 = F1
         if iter < T
-             update!(population, immigrants)
+            population.abundanceH .= exp(-1*F).*population.abundanceH
+            update!(population, immigrants)
         else
-             update!(population)
+            population.abundanceH .= exp(-1*F).*population.abundanceH
+            update!(population)
         end
-        W1 = AgeTraitStructuredModels.spawning_stock(population)
-        F1 = AgeTraitStructuredModels.fittness(population)
-        if (F0 < F1) & (Fmin == -1)
-            Fmin = F1
-            μrec, σrec = AgeTraitStructuredModels.trait_moments_recruits(population)
-        end 
-        
-        if flip & (W0 > W1)
-            flip = false
-        end 
-        
+             
+        F1 = fittness(population)
+  
     end 
-    SSB = W1
-    W = Fmin
-    return W, SSB, μrec, σrec
+    #println(iter)
+    return F1 
 end 
 
 
