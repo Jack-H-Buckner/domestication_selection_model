@@ -790,7 +790,13 @@ function spawning_stock(population)
     max_F = argmax(population.ageStructure.Fecundity)
     return sum(population.abundanceN .* population.ageStructure.Fecundity) ./ population.ageStructure.Fecundity[max_F]
 end 
-
+"""
+computes the number of individuals of age 1 in the population
+"""
+function spawning_stockH(population)
+    max_F = argmax(population.ageStructure.Fecundity)
+    return sum(population.abundanceH .* population.ageStructure.Fecundity) ./ population.ageStructure.Fecundity[max_F]
+end 
 
 """
     trait_moments_spawning(population)

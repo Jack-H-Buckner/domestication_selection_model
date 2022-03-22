@@ -725,7 +725,7 @@ function time_step!(population, E)
 end 
 
 # with immigration  
-function time_step!(population, Nim, Gdsn, E, before)
+function time_step!(population, Nim::Int64, Gdsn, E, before)
     if before
         J = reproduction(population, E )
         J_im = init_juvinile_hatchery(Nim, Gdsn)
@@ -741,8 +741,8 @@ end
 
 
 # with hatchery reproduction   
-function time_step!(population, Hgrad, Njuv, Nspawn, E)
-    JH,JN = reproduction_hatchery(population, Njuviniles, Nspawning, E)
+function time_step!(population, Hgrad::Function, Njuv, Nspawn, E)
+    JH,JN = reproduction_hatchery(population, Njuv, Nspawn, E)
     JN = selection(population.gradient, JN)
     JH = selection(Hgrad, JN)
     update_population!(population, vcat(JN,JH))    
@@ -926,6 +926,28 @@ function He(population)
     return He_acc/nloci
 end 
 
+
+
+function fitness(population)
+    
+    Gls = trait_dsn(population)
+    return sum(population.gradient.(Gls)/ length(Gls))
+        
+end 
+
+
+function spawning_stock(population)
+    SSB = 0.0
+    Fmax = population.ageStructureParams.Fecundity[argmax(population.ageStructureParams.Fecundity)]
+    for ind in population.individuals
+        if ind.Age > 150
+            print("here")
+        end
+         SSB += population.ageStructureParams.Fecundity[ind.Age]
+    end
+
+    return SSB/Fmax
+end
 
 end # module 
 
