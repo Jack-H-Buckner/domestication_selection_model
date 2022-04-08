@@ -7,9 +7,12 @@ GSA_data <-  GSA_data %>% filter(T_ != 0)
 
 
 
-ggplot(GSA_data,
-       aes(x =F_,y = W, color = as.factor(T_))) +
+ggplot(GSA_data ,
+       aes(x =F_,y = W, color = as.factor(p_im))) +
   geom_point()+geom_smooth()+
+  scale_color_discrete(
+                     name = "p imm. ")+
   facet_wrap(~order)+
   theme_classic()
+
 nrow(GSA_data)

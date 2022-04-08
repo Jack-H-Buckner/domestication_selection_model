@@ -138,6 +138,14 @@ function init_imigrants(population, N, mean)
 end 
 
 
+function update_im!(im, pop, N, mu_im)
+    d = Distributions.Normal(mu_im, sqrt(pop.Vle_)) 
+    trait = pdf.(d, im.grid)
+    im.trait = trait ./sum(trait)
+    im.N = N
+end 
+
+
 """
     reset!(population)
 

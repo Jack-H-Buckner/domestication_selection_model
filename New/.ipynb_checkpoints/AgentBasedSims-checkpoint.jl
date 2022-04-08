@@ -881,7 +881,24 @@ function pedigree_dsn(population)
     
     return dsn
 end 
+"""
 
+    pedigree_dsn_recruits(population)
+
+Distribution of pedigree values in the population 
+"""
+function pedigree_dsn_recruits(population)
+    n = length(population.individuals)
+    dsn = []
+        
+    for i in 1:n
+        if (population.individuals[i].Age == 1) & (population.individuals[i].Origin == 0)
+            push!(dsn,population.individuals[i].pedigree)
+        end
+    end 
+    
+    return dsn
+end
 
 
 """
@@ -898,6 +915,21 @@ function age_dsn(population)
     end 
     
     return dsn
+end 
+
+function recruits(population)
+    n = length(population.individuals)
+    N = 0
+    H = 0
+    for i in 1:n
+        if (population.individuals[i].Age == 1) & (population.individuals[i].Origin == 1)
+            H +=1
+        elseif (population.individuals[i].Age == 1)
+            N += 1
+        end 
+    end 
+    
+    return N,H
 end 
 
 

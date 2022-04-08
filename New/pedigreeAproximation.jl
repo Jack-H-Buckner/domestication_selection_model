@@ -3,6 +3,10 @@ module pedigreeAproximation
 include("AgeStructuredModels.jl")
 using Distributions
 
+
+##########################
+### population objects ###
+##########################
 mutable struct population
     # aproximation meta data
     n::Int64 # grid refinement 
@@ -11,34 +15,62 @@ mutable struct population
     # genetic state
     pi::AbstractMatrix{Float64} # pedigree dsn natrual 
     z::AbstractMatrix{Float64} # trait values natural 
+    zH::AbstractVector{Float64}
     V::Float64 # genetic variance conditional on pedigree 
     
     # demgraphic state
-    abundance::AbstractVector{Float64}
+    abundanceN::AbstractVector{Float64}
+    abundanceH::AbstractVector{Float64}
     
     # parameters
     ageStructure 
     correction::Float64
     s::Float64 # selection strength 
     theta::Float64 # optimal trait value 
-    
+    p_spawnH::Float64 # proportion of hatchery individuals spawnign in any give year
 end 
 
 
 mutable struct immigrants
-    # aproximation meta-data
-    n::Int64
-    m::Int64
     mean::Float64
-    V::Float64
-    
-    # genetic state
     N::Float64
-    pi::AbstractVector{Float64} # pedigree dsn natrual 
-    z::AbstractVector{Float64} # trait values natural 
 end 
 
 
+
+
+
+mutable struct simplePopulation
+    # aproximation meta data
+    n::Int64 # grid refinement 
+    m::Int64 # length of vectors 2^n + 1
+    
+    # genetic state
+    pi::AbstractVector{Float64} # pedigree dsn natrual 
+    z::AbstractVector{Float64} # trait values natural 
+    zH::Float64
+    V::Float64 # genetic variance conditional on pedigree 
+    
+    
+    # demgraphic state
+    N::Float64
+    H::Float64
+    
+    # parameters
+    correction::Float64
+    r::Float64 # growth rate
+    K::Float64 # carying capacity 
+    s::Float64 # selection strength 
+    theta::Float64 # optimal trait value 
+
+end 
+
+ 
+
+
+########################
+### useful functions ###
+########################
 
 """
      V_star_prime(Vle, s)
@@ -72,7 +104,7 @@ function correction(Vle, s, theta)
 end
 
 
-function init_population(ageStructure,  theta, s,n)
+function init_population(ageStructure,  theta, s,n, p_spawn)
     # aproximation meta data
     m = 2^n + 1
     
@@ -91,18 +123,38 @@ function init_population(ageStructure,  theta, s,n)
     # demographic state
     abundance = AgeStructuredModels.stable_age_structure(ageStructure)
     
-    return population(floor(Int,n), floor(Int, m),pi,z,V,abundance,ageStructure,correct,s,theta)
+    # hathcery popualtion state 
+    abundanceH = zeros(ageStructure.Amax)
+    zH = zeros(ageStructure.Amax)
+  
+    return population(floor(Int,n), floor(Int, m),pi,z,zH,V,abundance, abundanceH,ageStructure,correct,s,theta,p_spawn)
 end 
 
 
-function init_immigrants(population,N,mean)
-    n = population.n
-    m = population.m
-    pi = zeros(m); pi[end] = 1.0
-    z = zeros(m); z[end] = mean
-
-    return immigrants(floor(Int,n),floor(Int,m),mean,population.V,N,pi,z)
+function init_simplePopulation(r,K,theta,s,n)
+    # aproximation meta data
+    m = 2^n + 1
+    
+    # genetic state
+    pi = zeros(m);pi[1] = 1.0
+    z = zeros(m); z[1] = theta
+    V = V_star_prime(1.0, s)
+    zH = 0.0
+        
+    # parameters
+    correct = correction(1.0, s, theta)
+    
+    # demographic state
+    N = K
+  
+    return simplePopulation(n,m,pi,z,zH,V,N,0,correct,r, K,s,theta)
 end 
+
+
+function init_immigrants(N,mean)#population,
+    return immigrants(mean, N)
+end 
+
 
 
 function pedigree_trait_update!(z, pi)
@@ -111,12 +163,21 @@ function pedigree_trait_update!(z, pi)
     z_mat  = (z .+ transpose(z))./2
     z_mat =  pi_mat .* z_mat 
     round_conv!(z,z_mat)
-    z ./= pi # .+ 10^(-50))
+    z ./= pi
+    
+#     if isnan(z[end])& (pi[end] != 0)
+#         print("here ")
+#     end
+    
     for i in 1:length(z)
         if isnan(z[i])
+           
             z[i] = 0
         end 
+
     end 
+    
+    
     return z, pi
 end
 
@@ -144,27 +205,53 @@ function round_conv!(v,mat)
 end 
 
 
+###########################
+### population dynamics ###
+###########################
+
+
 function reproduction(population)
 
-    f_total = sum(population.abundance .* population.ageStructure.Fecundity)
-    
-    if f_total == 0
-        zeros(population.m),zeros(population.pi),0.0
-    end 
+    f_totalN = sum(population.abundanceN .* population.ageStructure.Fecundity)
+    f_totalH = population.p_spawnH * sum(population.abundanceH .* population.ageStructure.Fecundity)
+    f_total = f_totalN .+ f_totalH
 
-    pi = population.pi * (population.abundance .*  population.ageStructure.Fecundity) ./ f_total
+    # calcualte pedigree proportions of spawingin gstock (add hatchery individuals)
+    piN = population.pi * (population.abundanceN .*  population.ageStructure.Fecundity) ./ (f_totalN + f_totalH)
+ 
+    piN[end] = piN[end] + f_totalH ./ (f_totalN + f_totalH)
+    
+    # calcualte z values for natuaral popuatlion 
+    z = population.pi .* population.z * (population.abundanceN .*  population.ageStructure.Fecundity) 
+    z = z ./ (population.pi * (population.abundanceN .*  population.ageStructure.Fecundity) .+ 10^(-30))
 
     
-    z = population.pi .* population.z * (population.abundance .*  population.ageStructure.Fecundity) 
+    # add z values from hathcery individuals 
+    zH =  (population.p_spawnH * population.abundanceH .*population.ageStructure.Fecundity) .* population.zH
     
+    if f_totalH > 0
+        zH = sum(zH)/f_totalH
+    else
+        zH = 0.0
+    end
+    # calcualte proporiton of natrual born individuals with pedigree value of 1.
+    pi = population.pi * (population.abundanceN .*  population.ageStructure.Fecundity) ./ f_totalN
 
-    z = z ./ (population.pi * (population.abundance .*  population.ageStructure.Fecundity) .+ 10^(-30))
     
+    
+    # calcualte average trait value for individaul with pedigree value of 1 
+
+    z[end] = (pi[end]*z[end]*f_totalN + zH*f_totalH)/(f_totalH + pi[end]*f_totalN + 10^(-30)) 
+
     # convolution - random mating 
-    z, pi = pedigree_trait_update!(z, pi)
-     
-    return z, pi, f_total
+    z, pi = pedigree_trait_update!(z, piN)
+    
+    return z, pi, f_total, piN
 end 
+
+
+
+
 
 function prop_survival(z,z_prime,s,theta,V, V_prime)
     p1 = sqrt(V_prime)/sqrt(V ) 
@@ -184,6 +271,7 @@ function sampleN(n,pi)
     end
 end 
 
+
 function selection(z,pi,N,population)
     theta = population.theta
     s = population.s
@@ -202,20 +290,6 @@ function selection(z,pi,N,population)
 end 
 
 
-function immigration(z,pi,N, immigrants)
-    Nnew = N + immigrants.N
-    
-    # allow for demographic stochasticity in trait value around mean 
-    immigrants.z[end] = immigrants.mean
-    
-    # new proportions and means are averages
-    pi = (N*pi .+ immigrants.N*immigrants.pi)./Nnew
-    
-    z = (N*pi.*z + immigrants.N*immigrants.pi.*immigrants.z ) ./ (N*pi .+ immigrants.N*immigrants.pi .+ 10^(-30))
-    
-    
-    return z, pi, Nnew
-end 
 
 function sampleR(y)
 
@@ -257,20 +331,27 @@ end
 """
 Updates the age structure of the popuatlion and adds recruits
 """
-function ageing!(population, z, pi, N)
+function ageing!(population, z, pi, N, N_im, mu_im)
 
     
+    # update trait means
     new_z = zeros(population.m,population.ageStructure.Amax)
     new_z[:,2:end] = population.z[:,1:end-1]
     new_z[:,1] = z
     
+    
+    
+   
+    # update abundace and pi, sample survivors 
     new_pi = zeros(population.m,population.ageStructure.Amax)
     new_N = zeros(population.ageStructure.Amax)
+    new_NH = zeros(population.ageStructure.Amax)
     for a in 2:population.ageStructure.Amax
         
         
+        
         pi_a = population.pi[:,a-1]
-        Npi_a = population.abundance[a-1] .* pi_a
+        Npi_a = population.abundanceN[a-1] .* pi_a
         sa = population.ageStructure.Survival[a-1]
        
         Npi_a = broadcast(n -> sampleN(round(Int,n),sa),Npi_a)
@@ -283,57 +364,111 @@ function ageing!(population, z, pi, N)
         end 
         #new_pi[:,a] = pi_a 
         new_N[a] = sum(Npi_a)#population.abundance[a-1] * sa
+        
+        # hatchery popualtion survival 
+        new_NH[a] = sampleN(round(Int,population.abundanceH[a-1]),sa)
+        
     end 
     
+    # add recruits 
     new_pi[:,1] = pi
     new_N[1] = N 
- 
-    population.abundance = new_N
-    population.z= new_z
-    population.pi= new_pi
+    new_NH[1] = N_im 
+    
+    # update abundace, pi and z
+    population.abundanceN = new_N
+    population.abundanceH = new_NH
+    population.z = new_z
+    population.pi = new_pi
+    
+    # update hatchery trait values 
+    population.zH[2:end] =  population.zH[1:end-1]
+    population.zH[1] = mu_im
     
 end 
 
 
 
-function time_step_DSI!(population)
-    z, pi, N = reproduction(population)
-    z, pi, N =  recruitment(z, pi, N, population, true)
-    z, pi, N = selection(z,pi,N,population)
-    ageing!(population, z, pi, N)
-end 
 
-
-function time_step_DSI!(population, immigrants)
-    z, pi, N = reproduction(population)
-    z1, pi1, N1 =  recruitment(z, pi, N, population, true)
-    z1, pi1, N1 = selection(z1,pi1,N1,population)
-    z, pi, N = immigration(z1,pi1,N1, immigrants)
-    ageing!(population, z, pi, N)
+function time_step_DSI!(population, N_im, mu_im)
+    z, pi, N, piN = reproduction(population)
+    z1, pi1, N =  recruitment(z, pi, N, population, true)
+    z, pi, N = selection(z1,pi1,N,population)
+    ageing!(population, z, pi, N, N_im, mu_im)
+   # return piN
 end
 
 
 
+"""
+    time_step_simple!(population)
+
+Updates trait distriubiton and 
+"""
+function time_step_simple!(population,zH,H)
+
+    # immigation
+    piN = population.pi .*population.N ./ (population.N + population.H)
+    piN[end] = piN[end] + population.H ./ (population.N + population.H)
+    z = population.z
+    z[end] = (population.pi[end]*z[end]*population.N + zH*population.H)/(population.pi[end]*population.N + population.H + 10^(-30)) 
+
+    
+    # reproducion 
+    z, pi = pedigree_trait_update!(z, piN)
+    
+    # density dependence 
+    N = population.N + population.H
+    N = population.r*N/(1+(population.r-1)*N/population.K)
+    N *= population.correction
+    Npi = broadcast(i -> rand(Distributions.Poisson(N*pi[i])), 1:population.m)
+    N = sum( Npi)
+    pi = Npi ./ N
+
+    
+    # selection
+    theta = population.theta
+    s = population.s
+    V = population.V
+    V_prime = (s+1/V)^(-1)
+    
+    z_prime = V_prime.*(s*theta .+ z./V)
+    
+    p_survival = broadcast(i -> prop_survival(z[i],z_prime[i],s,theta,V, V_prime),1:length(z))
+ 
+    Nvec = broadcast(n -> floor(Int, n),  Npi)
+
+    Nvec = broadcast(i->sampleN(Nvec[i],p_survival[i]), 1:population.m)
+    
+    if sum(Nvec) == 0
+        return zeros(population.m), zeros(population.m), sum(Nvec)
+    end 
+    N = sum(Nvec)
+    population.pi = Nvec ./ N
+    population.z = z_prime
+    population.N = N
+    
+    # immigration 
+    population.H = H
+    population.zH = zH
+end 
+
+
+#############################
+### population statistics ###
+#############################
 
 function SSB(population)
-    f_total = sum(population.abundance .* population.ageStructure.Fecundity)
+    f_total = sum(population.abundanceN .* population.ageStructure.Fecundity)
+    f_total += sum(population.abundanceH .* population.ageStructure.Fecundity)
     return f_total ./ population.ageStructure.Fecundity[argmax(population.ageStructure.Fecundity)]
 end 
-function Recruits(populaiton)
-    return populaiton.abundance[1]
-end 
-
-function trait_moments(population)
-    pi = population.pi[:,1]
-    z = population.z[:,1]
-    return sum(pi.*z) 
-end 
-
 
 
 function fitness(population)
     
     z,pi,N = reproduction(population)
+    
     theta = population.theta
     s = population.s
     V = population.V
@@ -353,6 +488,9 @@ function distribution(x,population)
     v = population.V
     return sum(broadcast(i -> pi[i]*pdf(Distributions.Normal(z[i],sqrt(v)),x), 1:length(pi)))
 end 
+
+
+
 
 
 

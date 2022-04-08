@@ -144,4 +144,40 @@ mod_Wood_2007_ll1 = AgeStructuredModels.init(150,Wood_2007_1_ll_sr,long_lived_su
 mod_Wood_2007_ll2 = AgeStructuredModels.init(150,Wood_2007_2_ll_sr,long_lived_survival,Wood_07_F2_vec)
 
 
+
+################################
+### five year time intervals ###
+################################
+
+
+A_max_5years = 30
+a_5years = 5*collect(1:A_max_5years)
+
+
+#### fecundity at age ####
+
+Smyth_16_F= FecundityAgeRelationships.Walters2006(Smyth_16_Linfty, Smyth_16_W100, Smyth_16_Wmat, Smyth_16_K, 0)
+Smyth_16_F_vec_5years = Smyth_16_F.(a_5years .- 2.5)
+
+
+####  survival rates  ####
+Smyth_2016_survival_5years = repeat([Smyth_16_m^5],A_max_5years) 
+
+####  impact functions  ####
+psurvival_5years = Smyth_16_m .^a_5years
+psurvival_5years = psurvival_5years./psurvival_5years[1]
+Smyth_2016_LEP_5years = sum(Smyth_16_F_vec_5years  .* psurvival_5years)
+Smyth_2016_impact_5years = Smyth_16_F_vec_5years  .* psurvival_5years
+
+#### generation time ####
+Smyth_2016_T1_5years = Smyth_2016_T1/5
+
+#### sr curves ####
+Smyth_16_R_star_5years = N_star/sum(Smyth_16_m .^(a_5years)) # equilibrium recruitment rate
+Smyth_2016_sr_5years = StockRecruitCurves.init_BevetonHolt(Smyth_16_R_star_5years,k, Smyth_2016_LEP_5years)
+
+
+### Age structure param sets ###
+mod_Smyth_2016_5year = AgeStructuredModels.init(30,Smyth_2016_sr_5years, Smyth_2016_survival_5years, Smyth_16_F_vec_5years)
+
 end # modul 
