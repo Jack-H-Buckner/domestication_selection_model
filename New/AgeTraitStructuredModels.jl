@@ -593,6 +593,12 @@ function time_step_DSI!(population, immigrants)
     AgeTraitStructuredModels.ageing!(population, R, dsn,immigrants.N, immigrants.trait)
 end 
 
+function time_step_DSI!(population, immigrants, pim)
+    dsn, R = AgeTraitStructuredModels.reproduction(population)
+    R = AgeTraitStructuredModels.recruitment(R, population )
+    dsn, R = AgeTraitStructuredModels.selection(dsn, R, population)
+    AgeTraitStructuredModels.ageing!(population, R, dsn, R*pim, immigrants.trait)
+end 
 
 """
     time_step_DIS!(populations; immigrants)
