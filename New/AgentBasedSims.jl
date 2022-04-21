@@ -568,6 +568,7 @@ function reproduction_hatchery(population::populationSlakin, Njuviniles, Nspawni
     
     return juvinilesH, juvinilesN
 end 
+
 function reproduction_hatchery(population::populationWF, Njuviniles, Nspawning, E)
     
     if 0.5*Nspawning > length(population.individuals)

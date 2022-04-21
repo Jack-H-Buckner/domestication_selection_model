@@ -32,6 +32,11 @@ Smyth_16_mu_s = 200
 Smyth_16_sigma_s = 0 #0 #5
 Smyth_16_m = 0.96
 
+##########################
+####   weight at age  ####
+##########################
+Smyth_16_WAR = FecundityAgeRelationships.Walters2006_WAR(Smyth_16_Linfty, Smyth_16_W100, Smyth_16_K, 0)
+Wood_07_WAR = FecundityAgeRelationships.Walters2006_WAR(Wood_07_Linfty, Wood_07_W100, Wood_07_K, 0)
 
 # fecundity age function
 Wood_07_F1 = FecundityAgeRelationships.Walters2006Senescence(Wood_07_Linfty, Wood_07_W100, Wood_07_Wmat,

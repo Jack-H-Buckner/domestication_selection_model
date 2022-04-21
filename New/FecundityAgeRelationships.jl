@@ -71,4 +71,20 @@ end
 
 
 
+## weight at age relationship
+
+struct Walters2006_WAR
+    Linfty::Float64
+    W100
+    k::Float64
+    a0::Float64
+end 
+
+
+function (WAR::Walters2006_WAR)(a)
+    L = WAR.Linfty*(1-exp(-WAR.k*a))
+    W = WAR.W100/100*L^3
+    return W
+end 
+
 end #module 
