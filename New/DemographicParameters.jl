@@ -39,14 +39,14 @@ Smyth_16_WAR = FecundityAgeRelationships.Walters2006_WAR(Smyth_16_Linfty, Smyth_
 Wood_07_WAR = FecundityAgeRelationships.Walters2006_WAR(Wood_07_Linfty, Wood_07_W100, Wood_07_K, 0)
 
 # fecundity age function
-Wood_07_F1 = FecundityAgeRelationships.Walters2006Senescence(Wood_07_Linfty, Wood_07_W100, Wood_07_Wmat,
+Wood_07_F1 = FecundityAgeRelationships.Walters2006Senescence(Wood_07_Linfty,  Wood_07_Wmat,Wood_07_W100,
                                                             Wood_07_K, 0, Wood_07_mu_s1, Wood_07_sigma_s1)
 Wood_07_F1_vec = Wood_07_F1.(a)
 
-Wood_07_F2 = FecundityAgeRelationships.Walters2006(Wood_07_Linfty, Wood_07_W100, Wood_07_Wmat,Wood_07_K, 0)
+Wood_07_F2 = FecundityAgeRelationships.Walters2006(Wood_07_Linfty,Wood_07_Wmat, Wood_07_W100, Wood_07_K, 0)
 Wood_07_F2_vec = Wood_07_F2.(a)
 
-Smyth_16_F = FecundityAgeRelationships.Walters2006(Smyth_16_Linfty, Smyth_16_W100, Smyth_16_Wmat, Smyth_16_K, 0)
+Smyth_16_F = FecundityAgeRelationships.Walters2006(Smyth_16_Linfty,  Smyth_16_Wmat, Smyth_16_W100,Smyth_16_K, 0)
 Smyth_16_F_vec = Smyth_16_F.(a)
 
 ##########################

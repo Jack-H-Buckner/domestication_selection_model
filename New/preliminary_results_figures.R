@@ -245,10 +245,10 @@ ggplot(dat_long, aes(x = Rim, y = value, color = T_, group = as.factor(T_)))+
   geom_line()+
   scale_color_viridis(option = "cividis", trans = "log")+
   theme_classic()+
-  xlab("Duration of releases (generations)")+
+  xlab("Proporition of recruits from stocking (Rim) ")+
   ylab("Prop. Survive Selection")
 
 
-ggsave("figures/Rim_T_fitness_eq_zoom.png",
+ggsave("figures/Rim_T_fitness_eq.png",
        height = 4.0,
        width = 5.0)

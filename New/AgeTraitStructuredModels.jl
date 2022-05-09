@@ -117,8 +117,8 @@ function init(ageStructure, Vle, theta, s, min, max, dx)
     gradient = exp.(-s/2*(grid .- theta).^2)
     correction = 1/sum(trait .* gradient)
     
-
-
+    
+    #### initialize populaiton state ####
 
     abundance = AgeStructuredModels.stable_age_structure(ageStructure)
     abundanceH = zeros(ageStructure.Amax)

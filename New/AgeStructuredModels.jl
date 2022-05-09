@@ -16,7 +16,7 @@ mutable struct model
     SRCurve
     LeslieMatrix::AbstractMatrix{Float64}
     Survival::AbstractVector{Float64}
-    Fecundity::AbstractVector{Float64}
+    Fecundity#::AbstractVector{Float64}
 end 
 
 """
@@ -36,7 +36,7 @@ function init(Amax::Int64,SRCurve,Survival::Function,Fecundity::Function)
     return model(Amax,SRCurve,L,Survival.(1:Amax),Fecundity.(1:Amax))
 end 
 
-function init(Amax::Int64,SRCurve,Survival::AbstractVector{Float64},Fecundity::AbstractVector{Float64})
+function init(Amax::Int64,SRCurve,Survival::AbstractVector{Float64},Fecundity)
     L = build_leslie_matrix(Amax,Survival,Fecundity)
     return model(Amax,SRCurve,L,Survival,Fecundity)
 end 

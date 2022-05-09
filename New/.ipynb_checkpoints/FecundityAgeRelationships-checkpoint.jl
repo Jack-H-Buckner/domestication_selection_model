@@ -41,8 +41,8 @@ function (FAR::Walters2006)(a)
     L = FAR.Linfty*(1-exp(-FAR.k*a))
     W = FAR.W100/100*L^3
     F = (W - FAR.Wmat)#*(1 - 1/(1+exp((-(a-mu_s)/sigma_s))))
-    if F < 0
-        F=0
+    if F < 0.0
+        F*=0.0
     end 
     return F
 end 
